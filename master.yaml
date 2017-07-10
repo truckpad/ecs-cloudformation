@@ -14,6 +14,20 @@ Description: >
     Last Modified: 22nd September 2016
     Author: Paul Maddox <pmaddox@amazon.com>
 
+
+Parameters:
+
+    InstanceType:
+        Description: Instance type to use
+        Type: String
+        AllowedValues: [c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
+
+    ClusterSize:
+        Description: How many ECS hosts do you want to initially deploy?
+        Type: Number
+        Default: 2
+
+
 Resources:
 
     VPC:
@@ -57,37 +71,3 @@ Resources:
                 VPC: !GetAtt VPC.Outputs.VPC
                 SecurityGroup: !GetAtt SecurityGroups.Outputs.ECSHostSecurityGroup
                 Subnets: !GetAtt VPC.Outputs.PrivateSubnets
-
-    ProductService:
-        Type: AWS::CloudFormation::Stack
-        Properties:
-            TemplateURL: https://s3.amazonaws.com/ecs-refarch-cloudformation/services/product-service/service.yaml
-            Parameters:
-                VPC: !GetAtt VPC.Outputs.VPC
-                Cluster: !GetAtt ECS.Outputs.Cluster
-                DesiredCount: 2
-                Listener: !GetAtt ALB.Outputs.Listener 
-                Path: /products
-
-    WebsiteService:
-        Type: AWS::CloudFormation::Stack
-        Properties:
-            TemplateURL: https://s3.amazonaws.com/ecs-refarch-cloudformation/services/website-service/service.yaml
-            Parameters:
-                VPC: !GetAtt VPC.Outputs.VPC
-                Cluster: !GetAtt ECS.Outputs.Cluster
-                DesiredCount: 2
-                ProductServiceUrl: !Join [ "/", [ !GetAtt ALB.Outputs.LoadBalancerUrl, "products" ]]
-                Listener: !GetAtt ALB.Outputs.Listener 
-                Path: /
-
-
-Outputs:
-
-    ProductServiceUrl: 
-        Description: The URL endpoint for the product service
-        Value: !Join [ "/", [ !GetAtt ALB.Outputs.LoadBalancerUrl, "products" ]]
-
-    WebsiteServiceUrl: 
-        Description: The URL endpoint for the website service
-        Value: !Join ["", [ !GetAtt ALB.Outputs.LoadBalancerUrl, "/" ]]
