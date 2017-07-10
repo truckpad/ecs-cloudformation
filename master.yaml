@@ -20,7 +20,7 @@ Parameters:
     InstanceType:
         Description: Instance type to use
         Type: String
-        AllowedValues: [c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
+        AllowedValues: [t2.large, c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
 
     ClusterSize:
         Description: How many ECS hosts do you want to initially deploy?
@@ -66,8 +66,8 @@ Resources:
             TemplateURL: https://s3.amazonaws.com/ecs-refarch-cloudformation/infrastructure/ecs-cluster.yaml
             Parameters:
                 EnvironmentName: !Ref AWS::StackName
-                InstanceType: t2.large
-                ClusterSize: 4
+                InstanceType: !Ref InstanceType
+                ClusterSize: !Ref ClusterSize
                 VPC: !GetAtt VPC.Outputs.VPC
                 SecurityGroup: !GetAtt SecurityGroups.Outputs.ECSHostSecurityGroup
                 Subnets: !GetAtt VPC.Outputs.PrivateSubnets
