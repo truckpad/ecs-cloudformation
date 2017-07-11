@@ -21,7 +21,7 @@ Parameters:
         Default: 2
 
     SubnetPrefix:
-        Description: VPC Subnet prefix to create
+        Description: IP address first two blocks, used to build the VPC Subnet IPs
         Type: String
         Default: '10.16'
         AllowedPattern: ^[0-9]{2}\.[0-9]{2}$
