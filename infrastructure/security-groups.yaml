@@ -29,7 +29,9 @@ Resources:
                   IpProtocol: -1
                 # Allow SSH access from anywhere to our ECS cluster
                 - CidrIp: 0.0.0.0/0
-                  IpProtocol: ssh
+                  FromPort: '22'
+                  ToPort: '22'
+                  IpProtocol: tcp
             Tags: 
                 - Key: Name
                   Value: !Sub ${EnvironmentName}-ECS-Hosts
