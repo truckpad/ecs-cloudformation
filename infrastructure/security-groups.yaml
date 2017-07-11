@@ -27,6 +27,9 @@ Resources:
                 # Only allow inbound access to ECS from the ELB
                 - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup 
                   IpProtocol: -1
+                # Allow SSH access from anywhere to our ECS cluster
+                - CidrIp: 0.0.0.0/0
+                  IpProtocol: ssh
             Tags: 
                 - Key: Name
                   Value: !Sub ${EnvironmentName}-ECS-Hosts

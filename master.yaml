@@ -8,10 +8,8 @@ Description: >
     It then deploys a highly available ECS cluster using an AutoScaling Group, with 
     ECS hosts distributed across multiple Availability Zones. 
 
-    Finally, it deploys a pair of example ECS services from containers published in 
-    Amazon EC2 Container Registry (Amazon ECR).
-
-    Last Modified: 22nd September 2016
+    Last Modified: 15th July 2017
+    Author: Marcos Sobrinho <marcos.sobrinho@truckpad.com.br>
     Author: Paul Maddox <pmaddox@amazon.com>
 
 
@@ -28,51 +26,56 @@ Parameters:
         Default: 2
 
     SubnetPrefix:
-        Description: Subnet prefix :P
+        Description: VPC Subnet prefix to create
         Type: String
         Default: '10.16'
+        AllowedPattern: ^[0-9]{2}\.[0-9]{2}$
 
+    KeyName:
+        Description: Name of an existing EC2 KeyPair to enable SSH access to the ECS cluster
+        Type: AWS::EC2::KeyPair::KeyName
 
 Resources:
 
-    VPC:
+    vpc:
         Type: AWS::CloudFormation::Stack
         Properties:
             TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/vpc.yaml
             Parameters:
-                EnvironmentName:    !Ref AWS::StackName
-                VpcCIDR:            !Join ['.', [!Ref SubnetPrefix, '0.0/16']]
-                PublicSubnet1CIDR:  !Join ['.', [!Ref SubnetPrefix, '8.0/21']]
-                PublicSubnet2CIDR:  !Join ['.', [!Ref SubnetPrefix, '16.0/21']]
+                EnvironmentName: !Ref AWS::StackName
+                VpcCIDR: !Join ['.', [!Ref SubnetPrefix, '0.0/16']]
+                PublicSubnet1CIDR: !Join ['.', [!Ref SubnetPrefix, '8.0/21']]
+                PublicSubnet2CIDR: !Join ['.', [!Ref SubnetPrefix, '16.0/21']]
                 PrivateSubnet1CIDR: !Join ['.', [!Ref SubnetPrefix, '24.0/21']]
                 PrivateSubnet2CIDR: !Join ['.', [!Ref SubnetPrefix, '32.0/21']]
 
-    SecurityGroups:
+    sgs:
         Type: AWS::CloudFormation::Stack
         Properties:
             TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/security-groups.yaml
             Parameters: 
                 EnvironmentName: !Ref AWS::StackName
-                VPC: !GetAtt VPC.Outputs.VPC
+                VPC: !GetAtt vpc.Outputs.VPC
 
-    ALB:
+    alb:
         Type: AWS::CloudFormation::Stack
         Properties:
             TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/load-balancers.yaml
             Parameters:
                 EnvironmentName: !Ref AWS::StackName
-                VPC: !GetAtt VPC.Outputs.VPC
-                Subnets: !GetAtt VPC.Outputs.PublicSubnets
-                SecurityGroup: !GetAtt SecurityGroups.Outputs.LoadBalancerSecurityGroup
+                VPC: !GetAtt vpc.Outputs.VPC
+                Subnets: !GetAtt vpc.Outputs.PublicSubnets
+                SecurityGroup: !GetAtt sgs.Outputs.LoadBalancerSecurityGroup
 
-    ECS:
+    ecs:
         Type: AWS::CloudFormation::Stack
         Properties:
             TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/ecs-cluster.yaml
             Parameters:
                 EnvironmentName: !Ref AWS::StackName
+                KeyName: !Ref KeyName
                 InstanceType: !Ref InstanceType
                 ClusterSize: !Ref ClusterSize
-                VPC: !GetAtt VPC.Outputs.VPC
-                SecurityGroup: !GetAtt SecurityGroups.Outputs.ECSHostSecurityGroup
-                Subnets: !GetAtt VPC.Outputs.PrivateSubnets
+                VPC: !GetAtt vpc.Outputs.VPC
+                SecurityGroup: !GetAtt sgs.Outputs.ECSHostSecurityGroup
+                Subnets: !GetAtt vpc.Outputs.PrivateSubnets

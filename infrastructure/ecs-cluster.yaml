@@ -13,6 +13,10 @@ Parameters:
         Type: String
         Default: c4.large
 
+    KeyName:
+        Description: Name of an existing EC2 KeyPair to enable SSH access to the ECS cluster
+        Type: AWS::EC2::KeyPair::KeyName
+
     ClusterSize:
         Description: How many ECS hosts do you want to initially deploy?
         Type: Number
@@ -104,6 +108,7 @@ Resources:
             SecurityGroups: 
                 - !Ref SecurityGroup
             IamInstanceProfile: !Ref ECSInstanceProfile
+            KeyName: !Ref KeyName
             UserData: 
                 "Fn::Base64": !Sub |
                     #!/bin/bash
