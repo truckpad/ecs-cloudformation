@@ -1,0 +1,96 @@
+Description: >
+    Datadog server/APM agent
+
+Parameters: 
+
+    ApiKey:
+        Description: Install Datadog dd-agent using this API Key 
+        Type: String            
+        AllowedPattern: ^[a-f0-9]{32}$
+
+    EnableAPM:
+        Description: Enable Application Performance Monitoring (trace)
+        Type: String
+        Default: true
+        AllowedValues: [true, false]
+
+    VPC:
+        Description: The VPC that the ECS cluster is deployed to
+        Type: AWS::EC2::VPC::Id
+        
+    Cluster:
+        Description: Please provide the ECS Cluster ID that this service should run on
+        Type: String
+
+    DesiredCount: 
+        Description: How many instances of this task should we run across our cluster?
+        Type: Number
+        Default: 50
+
+
+Resources:
+
+    CloudWatchLogsGroup:
+        Type: AWS::Logs::LogGroup
+        Properties: 
+            LogGroupName: !Ref AWS::StackName
+            RetentionInDays: 7
+
+    TaskDefinition:
+        Type: AWS::ECS::TaskDefinition
+        Properties:
+            Family: dd-agent
+            ContainerDefinitions:
+                - Name: dd-agent
+                  Cpu: 10
+                  Essential: true
+                  Image: datadog/docker-dd-agent:latest
+                  MemoryReservation: 160
+                  Memory: 192
+                  Environment:
+                    - Name: API_KEY
+                      Value: !Ref ApiKey
+                    - Name: DD_APM_ENABLED
+                      Value: !Ref EnableAPM
+                  PortMappings:
+                    - HostPort: 8125
+                      ContainerPort: 8125
+                      Protocol: udp
+                    - HostPort: 8126
+                      ContainerPort: 8126
+                      Protocol: tcp
+                    - HostPort: 9001
+                      ContainerPort: 9001
+                      Protocol: tcp
+                  MountPoints:  
+                    - ContainerPath: /var/run/docker.sock
+                      SourceVolume: docker_sock
+                    - ContainerPath: /host/sys/fs/cgroup
+                      SourceVolume: cgroup
+                      ReadOnly: true
+                    - ContainerPath: /host/proc
+                      SourceVolume: proc
+                      ReadOnly: true
+                  LogConfiguration:
+                    LogDriver: awslogs
+                    Options:
+                        awslogs-group: !Ref AWS::StackName
+                        awslogs-region: !Ref AWS::Region
+            Volumes:
+              - Host:
+                  SourcePath: /cgroup/
+                Name: cgroup
+              - Host:
+                  SourcePath: /var/run/docker.sock
+                Name: docker_sock
+              - Host:
+                  SourcePath: /proc/
+                Name: proc
+
+    Service: 
+        Type: AWS::ECS::Service
+        DependsOn: CloudWatchLogsGroup
+        Properties: 
+            Cluster: !Ref Cluster
+            DesiredCount: !Ref DesiredCount
+            TaskDefinition: !Ref TaskDefinition
