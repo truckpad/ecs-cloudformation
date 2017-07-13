@@ -2,19 +2,19 @@ Description: >
     This is an example of a long running ECS service that serves a JSON API of products.
 
 Parameters: 
-
-    VPC:
-        Description: The VPC that the ECS cluster is deployed to
-        Type: AWS::EC2::VPC::Id
         
     Cluster:
-        Description: Please provide the ECS Cluster ID that this service should run on
+        Description: The ECS Cluster ID that this service should run on
         Type: String
 
     DesiredCount: 
         Description: How many instances of this task should we run across our cluster?
         Type: Number
         Default: 2
+
+    EnvironmentName:
+        Description: An environment name that will be prefixed to resource names
+        Type: String
 
     Listener:
         Description: The Application Load Balancer listener to register with
@@ -24,6 +24,11 @@ Parameters:
         Description: The path to register with the Application Load Balancer
         Type: String
         Default: /products
+
+    VPC:
+        Description: The VPC that the ECS cluster is deployed to
+        Type: AWS::EC2::VPC::Id
+
 
 Resources:
 
