@@ -164,16 +164,16 @@ Resources:
                   MetricIntervalUpperBound: 0
                   ScalingAdjustment: -10
                 - MetricIntervalLowerBound: -20
-                  MetricIntervalUpperBound: 0
+                  MetricIntervalUpperBound: -10
                   ScalingAdjustment: -20
                 - MetricIntervalLowerBound: -30
-                  MetricIntervalUpperBound: 0
+                  MetricIntervalUpperBound: -20
                   ScalingAdjustment: -30
                 - MetricIntervalLowerBound: -40
-                  MetricIntervalUpperBound: 0
+                  MetricIntervalUpperBound: -30
                   ScalingAdjustment: -40
-                - MetricIntervalLowerBound: -50
-                  MetricIntervalUpperBound: 0
+                - MetricIntervalLowerBound: ''
+                  MetricIntervalUpperBound: -40
                   ScalingAdjustment: -50
 
     ScaleUpPolicy:
@@ -187,6 +187,7 @@ Resources:
     CPUReservedTooLowAlarm:
         Type: AWS::CloudWatch::Alarm
         Properties:
+            AlarmName:  !Sub 'ECS ${EnvironmentName} Reserved CPU too low'
             AlarmDescription: !Sub 'Alarm if ECS cluster ${EnvironmentName} have too little CPU reserved'
             Namespace: AWS/ECS
             MetricName: CPUReservation
@@ -195,15 +196,16 @@ Resources:
                   Value: !Ref ECSCluster
             Statistic: Average
             Period: 60
-            EvaluationPeriods: 5
+            EvaluationPeriods: 20
             Threshold: 70
-            ComparisonOperator: GreaterThanThreshold
+            ComparisonOperator: LessThanThreshold
             AlarmActions:
                 - !Ref ScaleDownPolicy
 
     CPUReservedTooHighAlarm:
         Type: AWS::CloudWatch::Alarm
         Properties:
+            AlarmName:  !Sub 'ECS ${EnvironmentName} Reserved CPU too high'
             AlarmDescription: !Sub 'Alarm if ECS cluster ${EnvironmentName} have too much CPU reserved'
             Namespace: AWS/ECS
             MetricName: CPUReservation
@@ -214,7 +216,7 @@ Resources:
             Period: 60
             EvaluationPeriods: 5
             Threshold: 90
-            ComparisonOperator: GreaterThanThreshold
+            ComparisonOperator: GreaterThanOrEqualToThreshold
             AlarmActions:
                 - !Ref ScaleUpPolicy
 
