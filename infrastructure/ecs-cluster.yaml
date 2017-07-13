@@ -160,19 +160,19 @@ Resources:
             AutoScalingGroupName: !Ref ECSAutoScalingGroup
             PolicyType: StepScaling
             StepAdjustments:
-                - MetricIntervalLowerBound: 10
+                - MetricIntervalLowerBound: -10
                   MetricIntervalUpperBound: 0
                   ScalingAdjustment: -10
-                - MetricIntervalLowerBound: 20
+                - MetricIntervalLowerBound: -20
                   MetricIntervalUpperBound: 0
                   ScalingAdjustment: -20
-                - MetricIntervalLowerBound: 30
+                - MetricIntervalLowerBound: -30
                   MetricIntervalUpperBound: 0
                   ScalingAdjustment: -30
-                - MetricIntervalLowerBound: 40
+                - MetricIntervalLowerBound: -40
                   MetricIntervalUpperBound: 0
                   ScalingAdjustment: -40
-                - MetricIntervalLowerBound: 50
+                - MetricIntervalLowerBound: -50
                   MetricIntervalUpperBound: 0
                   ScalingAdjustment: -50
 
@@ -181,7 +181,6 @@ Resources:
         Properties:
             AdjustmentType: ChangeInCapacity
             AutoScalingGroupName: !Ref ECSAutoScalingGroup
-            EstimatedInstanceWarmup: 90
             Cooldown: 180
             ScalingAdjustment: 1
 
