@@ -158,7 +158,6 @@ Resources:
         Properties:
             AdjustmentType: PercentChangeInCapacity
             AutoScalingGroupName: !Ref ECSAutoScalingGroup
-            Cooldown: 600
             PolicyType: StepScaling
             StepAdjustments:
                 - MetricIntervalLowerBound: 10
