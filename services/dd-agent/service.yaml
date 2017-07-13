@@ -15,7 +15,7 @@ Parameters:
     DesiredCount: 
         Description: How many instances of this task should we run across our cluster?
         Type: Number
-        Default: 50
+        Default: 2
 
     EnableAPM:
         Description: Enable Application Performance Monitoring (trace)
