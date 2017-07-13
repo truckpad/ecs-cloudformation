@@ -17,8 +17,13 @@ Parameters:
         Description: Name of an existing EC2 KeyPair to enable SSH access to the ECS cluster
         Type: AWS::EC2::KeyPair::KeyName
 
-    ClusterSize:
+    MinClusterSize:
         Description: How many ECS hosts do you want to initially deploy?
+        Type: Number
+        Default: 2
+
+    MaxClusterSize:
+        Description: How many ECS hosts do you want this cluster to have at most?
         Type: Number
         Default: 2
 
@@ -83,9 +88,9 @@ Resources:
         Properties: 
             VPCZoneIdentifier: !Ref Subnets
             LaunchConfigurationName: !Ref ECSLaunchConfiguration
-            MinSize: !Ref ClusterSize
-            MaxSize: !Ref ClusterSize
-            DesiredCapacity: !Ref ClusterSize
+            MinSize: !Ref MinClusterSize
+            MaxSize: !Ref MaxClusterSize
+            DesiredCapacity: !Ref MinClusterSize
             Tags: 
                 - Key: Name
                   Value: !Sub ${EnvironmentName}-ecs
@@ -148,6 +153,73 @@ Resources:
                                     - /etc/cfn/cfn-hup.conf
                                     - /etc/cfn/hooks.d/cfn-auto-reloader.conf
 
+    ScaleDownPolicy:
+        Type: AWS::AutoScaling::ScalingPolicy
+        Properties:
+            AdjustmentType: PercentChangeInCapacity
+            AutoScalingGroupName: !Ref ECSAutoScalingGroup
+            Cooldown: 600
+            PolicyType: StepScaling
+            StepAdjustments:
+                - MetricIntervalLowerBound: 10
+                  MetricIntervalUpperBound: 0
+                  ScalingAdjustment: -10
+                - MetricIntervalLowerBound: 20
+                  MetricIntervalUpperBound: 0
+                  ScalingAdjustment: -20
+                - MetricIntervalLowerBound: 30
+                  MetricIntervalUpperBound: 0
+                  ScalingAdjustment: -30
+                - MetricIntervalLowerBound: 40
+                  MetricIntervalUpperBound: 0
+                  ScalingAdjustment: -40
+                - MetricIntervalLowerBound: 50
+                  MetricIntervalUpperBound: 0
+                  ScalingAdjustment: -50
+
+    ScaleUpPolicy:
+        Type: AWS::AutoScaling::ScalingPolicy
+        Properties:
+            AdjustmentType: ChangeInCapacity
+            AutoScalingGroupName: !Ref ECSAutoScalingGroup
+            EstimatedInstanceWarmup: 90
+            Cooldown: 180
+            ScalingAdjustment: 1
+
+    CPUReservedTooLowAlarm:
+        Type: AWS::CloudWatch::Alarm
+        Properties:
+            AlarmDescription: !Sub 'Alarm if ECS cluster ${EnvironmentName} have too little CPU reserved'
+            Namespace: AWS/ECS
+            MetricName: CPUReservation
+            Dimensions:
+                - Name: ClusterName
+                  Value: !Ref ECSCluster
+            Statistic: Average
+            Period: 60
+            EvaluationPeriods: 5
+            Threshold: 70
+            ComparisonOperator: GreaterThanThreshold
+            AlarmActions:
+                - !Ref ScaleDownPolicy
+
+    CPUReservedTooHighAlarm:
+        Type: AWS::CloudWatch::Alarm
+        Properties:
+            AlarmDescription: !Sub 'Alarm if ECS cluster ${EnvironmentName} have too much CPU reserved'
+            Namespace: AWS/ECS
+            MetricName: CPUReservation
+            Dimensions:
+                - Name: ClusterName
+                  Value: !Ref ECSCluster
+            Statistic: Average
+            Period: 60
+            EvaluationPeriods: 5
+            Threshold: 90
+            ComparisonOperator: GreaterThanThreshold
+            AlarmActions:
+                - !Ref ScaleUpPolicy
+
     # This IAM Role is attached to all of the ECS hosts. It is based on the default role
     # published here:
     # http://docs.aws.amazon.com/AmazonECS/latest/developerguide/instance_IAM_role.html
@@ -155,7 +227,6 @@ Resources:
     # You can add other IAM policy statements here to allow access from your ECS hosts
     # to other AWS services. Please note that this role will be used by ALL containers
     # running on the ECS host.
-
     ECSRole:
         Type: AWS::IAM::Role
         Properties: 

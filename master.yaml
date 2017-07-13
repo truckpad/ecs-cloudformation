@@ -10,8 +10,13 @@ Description: >
 
 Parameters:
 
-    ClusterSize:
+    MinClusterSize:
         Description: How many ECS hosts do you want to initially deploy?
+        Type: Number
+        Default: 2
+
+    MaxClusterSize:
+        Description: How many ECS hosts do you want this cluster to have at most?
         Type: Number
         Default: 2
 
@@ -87,7 +92,8 @@ Resources:
                 EnvironmentName: !Ref AWS::StackName
                 KeyName: !Ref KeyName
                 InstanceType: !Ref InstanceType
-                ClusterSize: !Ref ClusterSize
+                MinClusterSize: !Ref MinClusterSize
+                MaxClusterSize: !Ref MaxClusterSize
                 VPC: !GetAtt vpc.Outputs.VPC
                 SecurityGroup: !GetAtt sgs.Outputs.ECSHostSecurityGroup
                 Subnets: !GetAtt vpc.Outputs.PrivateSubnets
