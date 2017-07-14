@@ -3,13 +3,8 @@ Description: >
 
 Parameters:
 
-    ApiKey:
-        Description: Install Datadog dd-agent using this API Key 
-        Type: String            
-        AllowedPattern: ^[a-f0-9]{32}$
-        
     Cluster:
-        Description: The ECS Cluster ID that this service should run on
+        Description: ECS Cluster name that should run this service
         Type: String
 
     DesiredCount: 
@@ -17,19 +12,40 @@ Parameters:
         Type: Number
         Default: 2
 
+    ApiKey:
+        Description: Install Datadog dd-agent using this API Key 
+        Type: String            
+        AllowedPattern: ^[a-f0-9]{32}$
+
     EnableAPM:
         Description: Enable Application Performance Monitoring (trace)
         Type: String
         Default: false
         AllowedValues: [false, true]
 
-    EnvironmentName:
-        Description: An environment name that will be prefixed to resource names
-        Type: String
 
-    VPC:
-        Description: The VPC that the ECS cluster is deployed to
-        Type: AWS::EC2::VPC::Id
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label: 
+                default: Cluster Attributes
+              Parameters:
+                - Cluster
+                - DesiredCount
+            - Label: 
+                default: Datadog Monitoring
+              Parameters:
+                - ApiKey
+                - EnableAPM
+        ParameterLabels:
+            Cluster:
+                default: ECS Cluster
+            DesiredCount:
+                default: Desired Count
+            ApiKey: 
+                default: Datadog API Key
+            EnableAPM: 
+                default: 'Datadog: Enable APM?'
 
 
 Resources:
@@ -43,14 +59,12 @@ Resources:
     TaskDefinition:
         Type: AWS::ECS::TaskDefinition
         Properties:
-            Family: ${EnvironmentName}-dd-agent
+            Family: !Sub ${Cluster}-dd-agent
             ContainerDefinitions:
-                - Name: !Sub dd-agent
+                - Name: dd-agent
                   Cpu: 10
                   Essential: true
                   Image: datadog/docker-dd-agent:latest
-                  # MemoryReservation: 160
-                  # Memory: 192
                   Memory: 128
                   Environment:
                     - Name: API_KEY
