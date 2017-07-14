@@ -140,7 +140,7 @@ Resources:
         Properties:
             TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/services/dd-agent/service.yaml
             Parameters:
-                EnvironmentName: !Ref AWS::StackName
+                Cluster: !Ref AWS::StackName
                 ApiKey: !Ref DatadogApiKey
                 EnableAPM: !Ref DatadogEnableAPM
 
