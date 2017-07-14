@@ -159,14 +159,20 @@ Outputs:
         Export:
             Name: !Sub ${AWS::StackName}-alb
 
+    LoadBalancerListener:
+        Description: A reference to a port 80 listener
+        Value: !GetAtt alb.Outputs.Listener
+        Export:
+            Name: !Sub ${AWS::StackName}-alb-listener
+
     LoadBalancerUrl:
         Description: The URL of the ALB
         Value: !GetAtt alb.Outputs.LoadBalancerUrl
         Export:
             Name: !Sub ${AWS::StackName}-alb-url
 
-    Listener:
-        Description: A reference to a port 80 listener
-        Value: !GetAtt alb.Outputs.Listener
+    VPC:
+        Description: VPC ARN
+        Value: !GetAtt vpc.VPC
         Export:
-            Name: !Sub ${AWS::StackName}-alb-listener
+            Name: !Sub ${AWS::StackName}-vpc
