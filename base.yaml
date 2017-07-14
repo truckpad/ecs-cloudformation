@@ -147,11 +147,11 @@ Resources:
 
 Outputs:
 
-    # Cluster:
-    #     Description: The ECS cluster name that I've created!
-    #     Value: !GetAtt ecs.Outputs.Cluster
-    #     Export:
-    #         Name: !Sub ${AWS::StackName}-cluster
+    Cluster:
+        Description: The ECS cluster name that I've created!
+        Value: !GetAtt ecs.Outputs.Cluster
+        Export:
+            Name: !Sub ${AWS::StackName}-cluster
 
     LoadBalancer:
         Description: A reference to the Application Load Balancer
@@ -159,20 +159,14 @@ Outputs:
         Export:
             Name: !Sub ${AWS::StackName}-alb
 
-    LoadBalancerListener:
-        Description: A reference to a port 80 listener
-        Value: !GetAtt alb.Outputs.Listener
-        Export:
-            Name: !Sub ${AWS::StackName}-alb-listener
-
     LoadBalancerUrl:
         Description: The URL of the ALB
         Value: !GetAtt alb.Outputs.LoadBalancerUrl
         Export:
             Name: !Sub ${AWS::StackName}-alb-url
 
-    VPC:
-        Description: VPC ARN
-        Value: !GetAtt vpc.VPC
+    Listener:
+        Description: A reference to a port 80 listener
+        Value: !GetAtt alb.Outputs.Listener
         Export:
-            Name: !Sub ${AWS::StackName}-vpc
+            Name: !Sub ${AWS::StackName}-alb-listener
