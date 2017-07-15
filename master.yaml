@@ -147,12 +147,6 @@ Resources:
 
 Outputs:
 
-    # Cluster:
-    #     Description: The ECS cluster name that I've created!
-    #     Value: !GetAtt ecs.Outputs.Cluster
-    #     Export:
-    #         Name: !Sub ${AWS::StackName}-cluster
-
     LoadBalancer:
         Description: A reference to the Application Load Balancer
         Value: !GetAtt alb.Outputs.LoadBalancer
@@ -173,6 +167,6 @@ Outputs:
 
     VPC:
         Description: VPC ARN
-        Value: !GetAtt vpc.VPC
+        Value: !GetAtt vpc.Outputs.VPC
         Export:
             Name: !Sub ${AWS::StackName}-vpc
