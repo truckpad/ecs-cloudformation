@@ -202,14 +202,20 @@ Outputs:
     VPC: 
         Description: A reference to the created VPC
         Value: !Ref VPC
+        Export:
+            Name: !Sub ${AWS::StackName}
 
     PublicSubnets:
         Description: A list of the public subnets
         Value: !Join [ ",", [ !Ref PublicSubnet1, !Ref PublicSubnet2 ]]
+        Export:
+            Name: !Sub ${AWS::StackName}-public-subnets
 
     PrivateSubnets:
         Description: A list of the private subnets
         Value: !Join [ ",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2 ]]
+        Export:
+            Name: !Sub ${AWS::StackName}-private-subnets
 
     PublicSubnet1:
         Description: A reference to the public subnet in the 1st Availability Zone

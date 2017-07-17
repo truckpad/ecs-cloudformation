@@ -19,17 +19,41 @@ Parameters:
         Type: Number
         Default: 2
 
-    InstanceType:
-        Description: Instance type to use
+    InstanceLifecycle:
+        Description: Normal (on-demand, expensive) or Spot (cheap!)
         Type: String
-        AllowedValues: [t2.large, c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
+        Default: normal
+        AllowedValues: [normal, spot]
+
+    InstanceType:
+        Description: Instance type to use when Instance Lifecycle is "normal".
+        Type: String
+        Default: m4.large
+        AllowedValues: [t2.large, c3.large, c3.xlarge, c3.2xlarge, c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
+
+    InstanceTypes:
+        Description: Instance types to use when Instance Lifecycle is "spot". Comma-delimited
+        Type: CommaDelimitedList
+        Default: 'c3.large, c4.large, m4.large'
+
+    SpotMaximumPrice:
+        Description: Maximum bid value for Spot Instances
+        Type: Number
+        Default: 0.10
 
     KeyName:
         Description: Name of an existing EC2 KeyPair to enable SSH access to the ECS cluster
         Type: AWS::EC2::KeyPair::KeyName
 
+    VPCToAttach:
+        Description: 'Choose an existing exported VPC name to use *OR*'
+        Type: String
+
     SubnetPrefix:
-        Description: IP address first two blocks, used to build the VPC Subnet IPs. Should be within the Private IPv4 address space
+        Description: > 
+            To create a new VPC. IP address first two blocks, used to build the new VPC Subnet IPs. 
+            Should be within the Private IPv4 address space and shouldn't be already in use by another
+            VPC or Subnet
         Type: String
         Default: '10.16'
         AllowedPattern: ^(10|172|192)\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])$
@@ -51,16 +75,26 @@ Metadata:
     AWS::CloudFormation::Interface:
         ParameterGroups:
             - Label: 
-                default: Cluster Attributes
+                default: ECS Cluster
               Parameters:
                 - MinClusterSize
                 - MaxClusterSize
+                - InstanceLifecycle
+            - Label: 
+                default: ECS Cluster - Normal
+              Parameters:
                 - InstanceType
             - Label: 
-                default: Network Connectivity
+                default: ECS Cluster - Spot
               Parameters:
-                - SubnetPrefix
+                - InstanceTypes
+                - SpotMaximumPrice
+            - Label: 
+                default: Networking
+              Parameters:
                 - KeyName
+                - VPCToAttach
+                - SubnetPrefix
             - Label: 
                 default: Application Monitoring
               Parameters:
@@ -71,10 +105,24 @@ Metadata:
                 default: Minimal Cluster Size
             MaxClusterSize: 
                 default: Maximum Cluster Size
+            InstanceLifecycle:
+                default: Instance Lifecycle
             InstanceType: 
-                default: EC2 Instance Type
+                default: 'EC2 Instance Type (normal)'
+            InstanceTypes:
+                default: 'EC2 Instance Types (spot)'
+            SpotMaximumPrice:
+                default: Spot Maximum Price
+            ShouldCreateVPC:
+                default: Create or attach to VPC?
+            VPCToAttach:
+                default: Existing VPC to attach
+            PublicSubnetsToAttach:
+                default: Existing VPC public subnets
+            PrivateSubnetsToAttach:
+                default: Existing VPC private subnets
             SubnetPrefix: 
-                default: Subnet Prefix
+                default: Subnet Prefix for New VPC
             KeyName: 
                 default: SSH Key Name
             DatadogApiKey: 
@@ -85,12 +133,14 @@ Metadata:
 
 Conditions:
     EnableDatadogAgent: !Not [ !Equals [ !Ref DatadogApiKey, none ] ]
+    ShouldCreateVPC: !Equals [ !Ref VPCToAttach, '' ]
 
 
 Resources:
 
     vpc:
         Type: AWS::CloudFormation::Stack
+        Condition: ShouldCreateVPC
         Properties:
             TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/vpc.yaml
             Parameters:
@@ -107,7 +157,7 @@ Resources:
             TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/security-groups.yaml
             Parameters: 
                 EnvironmentName: !Ref AWS::StackName
-                VPC: !GetAtt vpc.Outputs.VPC
+                VPC: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
 
     alb:
         Type: AWS::CloudFormation::Stack
@@ -115,23 +165,23 @@ Resources:
             TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/load-balancers.yaml
             Parameters:
                 EnvironmentName: !Ref AWS::StackName
-                VPC: !GetAtt vpc.Outputs.VPC
-                Subnets: !GetAtt vpc.Outputs.PublicSubnets
+                VPC: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
+                Subnets: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.PublicSubnets, {'Fn::ImportValue': !Sub '${VPCToAttach}-public-subnets'}]
                 SecurityGroup: !GetAtt sgs.Outputs.LoadBalancerSecurityGroup
 
     ecs:
         Type: AWS::CloudFormation::Stack
         Properties:
-            TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/ecs-cluster.yaml
+            TemplateURL: !Sub https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/ecs-cluster-${InstanceLifecycle}.yaml
             Parameters:
                 EnvironmentName: !Ref AWS::StackName
                 KeyName: !Ref KeyName
                 InstanceType: !Ref InstanceType
                 MinClusterSize: !Ref MinClusterSize
                 MaxClusterSize: !Ref MaxClusterSize
-                VPC: !GetAtt vpc.Outputs.VPC
+                VPC: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
                 SecurityGroup: !GetAtt sgs.Outputs.ECSHostSecurityGroup
-                Subnets: !GetAtt vpc.Outputs.PrivateSubnets
+                Subnets: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.PrivateSubnets, {'Fn::ImportValue': !Sub '${VPCToAttach}-private-subnets'}]
 
     ddagent:
         Type: AWS::CloudFormation::Stack
@@ -167,6 +217,6 @@ Outputs:
 
     VPC:
         Description: VPC ARN
-        Value: !GetAtt vpc.Outputs.VPC
+        Value: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
         Export:
             Name: !Sub ${AWS::StackName}-vpc

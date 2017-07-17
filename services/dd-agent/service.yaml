@@ -10,7 +10,7 @@ Parameters:
     DesiredCount: 
         Description: How many instances of this task should we run across our cluster?
         Type: Number
-        Default: 2
+        Default: 1
 
     ApiKey:
         Description: Install Datadog dd-agent using this API Key 
@@ -113,3 +113,5 @@ Resources:
             Cluster: !Ref Cluster
             DesiredCount: !Ref DesiredCount
             TaskDefinition: !Ref TaskDefinition
+            PlacementConstraints:
+                - Type: distinctInstance
