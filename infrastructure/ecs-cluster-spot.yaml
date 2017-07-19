@@ -130,7 +130,6 @@ Resources:
                     #!/bin/bash
                     yum install -y aws-cfn-bootstrap
                     /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
-                    # /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSCluster
           - IamInstanceProfile:
               Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
@@ -147,7 +146,6 @@ Resources:
                     #!/bin/bash
                     yum install -y aws-cfn-bootstrap
                     /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
-                    # /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
           - IamInstanceProfile:
               Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
@@ -164,7 +162,6 @@ Resources:
                     #!/bin/bash
                     yum install -y aws-cfn-bootstrap
                     /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
-                    # /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ScalableTarget
       Metadata:
         AWS::CloudFormation::Init:
             config:
