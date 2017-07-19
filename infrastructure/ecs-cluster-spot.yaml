@@ -13,12 +13,12 @@ Parameters:
         Type: String
         Default: c3.large
 
-    InstanceType1: 
+    InstanceType2: 
         Description: Which instance type should we use to build the ECS cluster?
         Type: String
         Default: c4.large
 
-    InstanceType1: 
+    InstanceType3: 
         Description: Which instance type should we use to build the ECS cluster?
         Type: String
         Default: m4.large
@@ -101,9 +101,9 @@ Resources:
     SpotFleet:
       Type: AWS::EC2::SpotFleet
       DependsOn:
-      - SpotFleetRole
-      - SpotFleetInstanceProfile
-      - ECSCluster
+        - ECSCluster
+        - ECSRole
+        - SpotFleetRole
       Properties:
         SpotFleetRequestConfigData:
           AllocationStrategy: lowestPrice
@@ -115,7 +115,7 @@ Resources:
           TerminateInstancesWithExpiration: true          
           LaunchSpecifications:
           - IamInstanceProfile:
-              Arn: !GetAtt SpotFleetInstanceProfile.Arn
+              Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
               Fn::FindInMap: [AWSRegionToAMI, !Ref 'AWS::Region', AMI]
             InstanceType: !Ref InstanceType1
@@ -124,15 +124,15 @@ Resources:
               Enabled: true
             SecurityGroups:
             - GroupId: !Ref SecurityGroup
-            SubnetId: !Join [',', [!Ref PublicSubnet1, !Ref PublicSubnet2]]
+            SubnetId: !Join [', ', !Ref Subnets]
             UserData:
-              "Fn::Base64": !Sub '
+              "Fn::Base64": !Sub |
                     #!/bin/bash
                     yum install -y aws-cfn-bootstrap
-                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
-                    /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSAutoScalingGroup'
+                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
+                    # /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSCluster
           - IamInstanceProfile:
-              Arn: !GetAtt SpotFleetInstanceProfile.Arn
+              Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
               Fn::FindInMap: [AWSRegionToAMI, !Ref 'AWS::Region', AMI]
             InstanceType: !Ref InstanceType2
@@ -141,15 +141,15 @@ Resources:
               Enabled: true
             SecurityGroups:
             - GroupId: !Ref SecurityGroup
-            SubnetId: !Join [',', [!Ref PublicSubnet1, !Ref PublicSubnet2]]
+            SubnetId: !Join [', ', !Ref Subnets]
             UserData:
-              "Fn::Base64": !Sub '
+              "Fn::Base64": !Sub |
                     #!/bin/bash
                     yum install -y aws-cfn-bootstrap
-                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
-                    /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSAutoScalingGroup'
+                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
+                    # /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
           - IamInstanceProfile:
-              Arn: !GetAtt SpotFleetInstanceProfile.Arn
+              Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
               Fn::FindInMap: [AWSRegionToAMI, !Ref 'AWS::Region', AMI]
             InstanceType: !Ref InstanceType3
@@ -158,13 +158,13 @@ Resources:
               Enabled: true
             SecurityGroups:
             - GroupId: !Ref SecurityGroup
-            SubnetId: !Join [',', [!Ref PublicSubnet1, !Ref PublicSubnet2]]
+            SubnetId: !Join [', ', !Ref Subnets]
             UserData:
-              "Fn::Base64": !Sub '
+              "Fn::Base64": !Sub |
                     #!/bin/bash
                     yum install -y aws-cfn-bootstrap
-                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
-                    /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSAutoScalingGroup'
+                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
+                    # /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ScalableTarget
       Metadata:
         AWS::CloudFormation::Init:
             config:
@@ -185,8 +185,8 @@ Resources:
                         content: !Sub |
                             [cfn-auto-reloader-hook]
                             triggers=post.update
-                            path=Resources.ContainerInstances.Metadata.AWS::CloudFormation::Init
-                            action=/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
+                            path=Resources.SpotFleet.Metadata.AWS::CloudFormation::Init
+                            action=/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
 
                 services: 
                     sysvinit:
@@ -197,211 +197,128 @@ Resources:
                                 - /etc/cfn/cfn-hup.conf
                                 - /etc/cfn/hooks.d/cfn-auto-reloader.conf
 
-    SpotFleetInstanceProfile:
-      DependsOn:
-        - SpotFleetInstanceRole
-      Properties:
-        Path: /
-        Roles: !Ref spotFleetInstanceRole
-      Type: AWS::IAM::InstanceProfile
-    
-    SpotFleetInstanceRole:
-      Type: AWS::IAM::Role
-      Properties:
-        AssumeRolePolicyDocument:
-          Statement:
-          - Action:
-            - sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service:
-              - ec2.amazonaws.com
-          Version: 2012-10-17
-        ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
-        Path: /
-        Policies:
-        - PolicyDocument:
-            Statement:
-            - Action:
-              - ecs:UpdateContainerInstancesState
-              Effect: Allow
-              Resource: '*'
-            Version: 2012-10-17
-          PolicyName: ecsUpdateContainerInstancesStatePolicy
-        - PolicyDocument:
-            Statement:
-            - Action:
-              - logs:CreateLogGroup
-              - logs:CreateLogStream
-              - logs:PutLogEvents
-              - logs:DescribeLogStreams
-              Effect: Allow
-              Resource: arn:aws:logs:*:*:*
-            Version: 2012-10-17
-          PolicyName: cloudWatchLogsPolicy
-        - PolicyDocument:
-            Statement:
-            - Action:
-              - sns:Publish
-              Effect: Allow
-              Resource:
-                Ref: snsTopic
-            Version: 2012-10-17
-          PolicyName: snsPublishPolicy
-
-    SpotFleetRole:
-      Properties:
-        AssumeRolePolicyDocument:
-          Statement:
-          - Action:
-            - sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service:
-              - spotfleet.amazonaws.com
-          Version: 2012-10-17
-        ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
-        Path: /
-      Type: AWS::IAM::Role
-
-    # ECSAutoScalingGroup:
-    #     Type: AWS::AutoScaling::AutoScalingGroup
-    #     Properties: 
-    #         VPCZoneIdentifier: !Ref Subnets
-    #         LaunchConfigurationName: !Ref ECSLaunchConfiguration
-    #         MinSize: !Ref MinClusterSize
-    #         MaxSize: !Ref MaxClusterSize
-    #         DesiredCapacity: !Ref MinClusterSize
-    #         Tags: 
-    #             - Key: Name
-    #               Value: !Sub ${EnvironmentName}-ecs
-    #               PropagateAtLaunch: true
-    #     CreationPolicy:
-    #         ResourceSignal: 
-    #             Timeout: PT15M
-    #     UpdatePolicy:
-    #         AutoScalingRollingUpdate:
-    #             MinInstancesInService: 1
-    #             MaxBatchSize: 1
-    #             PauseTime: PT15M
-    #             WaitOnResourceSignals: true
-        
-    # ECSLaunchConfiguration:
-    #     Type: AWS::AutoScaling::LaunchConfiguration
-    #     Properties:
-    #         ImageId:  !FindInMap [AWSRegionToAMI, !Ref "AWS::Region", AMI]
-    #         InstanceType: !Ref InstanceType
-    #         SecurityGroups: 
-    #             - !Ref SecurityGroup
-    #         IamInstanceProfile: !Ref ECSInstanceProfile
-    #         KeyName: !Ref KeyName
-    #         UserData: 
-    #             "Fn::Base64": !Sub |
-    #                 #!/bin/bash
-    #                 yum install -y aws-cfn-bootstrap
-    #                 /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
-    #                 /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSAutoScalingGroup
-
-    #     Metadata:
-    #         AWS::CloudFormation::Init:
-    #             config:
-    #                 commands:
-    #                     01_add_instance_to_cluster:
-    #                         command: !Sub echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config
-    #                 files:
-    #                     "/etc/cfn/cfn-hup.conf":
-    #                         mode: 000400
-    #                         owner: root
-    #                         group: root
-    #                         content: !Sub |
-    #                             [main]
-    #                             stack=${AWS::StackId}
-    #                             region=${AWS::Region}
-                        
-    #                     "/etc/cfn/hooks.d/cfn-auto-reloader.conf":
-    #                         content: !Sub |
-    #                             [cfn-auto-reloader-hook]
-    #                             triggers=post.update
-    #                             path=Resources.ContainerInstances.Metadata.AWS::CloudFormation::Init
-    #                             action=/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
-
-    #                 services: 
-    #                     sysvinit:
-    #                         cfn-hup: 
-    #                             enabled: true
-    #                             ensureRunning: true
-    #                             files: 
-    #                                 - /etc/cfn/cfn-hup.conf
-    #                                 - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+    ScalableTarget:
+        Type: AWS::ApplicationAutoScaling::ScalableTarget
+        DependsOn:
+            - SpotFleet
+        Properties:
+            MinCapacity: !Ref MinClusterSize
+            MaxCapacity: !Ref MaxClusterSize
+            ResourceId: !Sub 'spot-fleet-request/${SpotFleet}'
+            RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/ecsAutoscaleRole'
+            ScalableDimension: ec2:spot-fleet-request:TargetCapacity
+            ServiceNamespace: ec2
 
     ScaleDownPolicy:
-        Type: AWS::AutoScaling::ScalingPolicy
-        Properties:
-            AdjustmentType: PercentChangeInCapacity
-            AutoScalingGroupName: !Ref ECSAutoScalingGroup
+        Type: AWS::ApplicationAutoScaling::ScalingPolicy
+        Properties: 
+            PolicyName: !Sub '${EnvironmentName}-ScaleDownPolicy'
             PolicyType: StepScaling
-            StepAdjustments:
-                - MetricIntervalLowerBound: -10
-                  MetricIntervalUpperBound: 0
-                  ScalingAdjustment: -10
-                - MetricIntervalLowerBound: -20
-                  MetricIntervalUpperBound: -10
-                  ScalingAdjustment: -20
-                - MetricIntervalLowerBound: -30
-                  MetricIntervalUpperBound: -20
-                  ScalingAdjustment: -30
-                - MetricIntervalLowerBound: -40
-                  MetricIntervalUpperBound: -30
-                  ScalingAdjustment: -40
-                - MetricIntervalLowerBound: ''
-                  MetricIntervalUpperBound: -40
-                  ScalingAdjustment: -50
+            ScalingTargetId: !Ref ScalableTarget
+            StepScalingPolicyConfiguration:
+                AdjustmentType: ChangeInCapacity
+                Cooldown: 120
+                MetricAggregationType: Average
+                StepAdjustments:
+                    - MetricIntervalLowerBound: -10
+                      MetricIntervalUpperBound: 0
+                      ScalingAdjustment: -10
+                    - MetricIntervalLowerBound: -20
+                      MetricIntervalUpperBound: -10
+                      ScalingAdjustment: -20
+                    - MetricIntervalLowerBound: -30
+                      MetricIntervalUpperBound: -20
+                      ScalingAdjustment: -30
+                    - MetricIntervalLowerBound: -40
+                      MetricIntervalUpperBound: -30
+                      ScalingAdjustment: -40
+                    - MetricIntervalLowerBound: ''
+                      MetricIntervalUpperBound: -40
+                      ScalingAdjustment: -50
 
     ScaleUpPolicy:
-        Type: AWS::AutoScaling::ScalingPolicy
+        Type: AWS::ApplicationAutoScaling::ScalingPolicy
+        Properties: 
+            PolicyName: !Sub '${EnvironmentName}-ScaleUpPolicy'
+            PolicyType: StepScaling
+            ScalingTargetId: !Ref ScalableTarget
+            StepScalingPolicyConfiguration:
+                AdjustmentType: ChangeInCapacity
+                Cooldown: 60
+                MetricAggregationType: Average
+                StepAdjustments:
+                    - MetricIntervalLowerBound: 0
+                      ScalingAdjustment: 1
+
+    CPUReservedTooLowAlarm:
+        Type: AWS::CloudWatch::Alarm
         Properties:
-            AdjustmentType: ChangeInCapacity
-            AutoScalingGroupName: !Ref ECSAutoScalingGroup
-            Cooldown: 180
-            ScalingAdjustment: 1
+            AlarmName:  !Sub 'ECS ${EnvironmentName} Reserved CPU too low'
+            AlarmDescription: !Sub 'Alarm if ECS cluster ${EnvironmentName} have too little CPU reserved'
+            Namespace: AWS/ECS
+            MetricName: CPUReservation
+            Dimensions:
+                - Name: ClusterName
+                  Value: !Ref ECSCluster
+            Statistic: Average
+            Period: 60
+            EvaluationPeriods: 20
+            Threshold: 70
+            ComparisonOperator: LessThanThreshold
+            AlarmActions:
+                - !Ref ScaleDownPolicy
 
-    # CPUReservedTooLowAlarm:
-    #     Type: AWS::CloudWatch::Alarm
-    #     Properties:
-    #         AlarmName:  !Sub 'ECS ${EnvironmentName} Reserved CPU too low'
-    #         AlarmDescription: !Sub 'Alarm if ECS cluster ${EnvironmentName} have too little CPU reserved'
-    #         Namespace: AWS/ECS
-    #         MetricName: CPUReservation
-    #         Dimensions:
-    #             - Name: ClusterName
-    #               Value: !Ref ECSCluster
-    #         Statistic: Average
-    #         Period: 60
-    #         EvaluationPeriods: 20
-    #         Threshold: 70
-    #         ComparisonOperator: LessThanThreshold
-    #         AlarmActions:
-    #             - !Ref ScaleDownPolicy
+    CPUReservedTooHighAlarm:
+        Type: AWS::CloudWatch::Alarm
+        Properties:
+            AlarmName:  !Sub 'ECS ${EnvironmentName} Reserved CPU too high'
+            AlarmDescription: !Sub 'Alarm if ECS cluster ${EnvironmentName} have too much CPU reserved'
+            Namespace: AWS/ECS
+            MetricName: CPUReservation
+            Dimensions:
+                - Name: ClusterName
+                  Value: !Ref ECSCluster
+            Statistic: Average
+            Period: 60
+            EvaluationPeriods: 5
+            Threshold: 90
+            ComparisonOperator: GreaterThanOrEqualToThreshold
+            AlarmActions:
+                - !Ref ScaleUpPolicy
 
-    # CPUReservedTooHighAlarm:
-    #     Type: AWS::CloudWatch::Alarm
-    #     Properties:
-    #         AlarmName:  !Sub 'ECS ${EnvironmentName} Reserved CPU too high'
-    #         AlarmDescription: !Sub 'Alarm if ECS cluster ${EnvironmentName} have too much CPU reserved'
-    #         Namespace: AWS/ECS
-    #         MetricName: CPUReservation
-    #         Dimensions:
-    #             - Name: ClusterName
-    #               Value: !Ref ECSCluster
-    #         Statistic: Average
-    #         Period: 60
-    #         EvaluationPeriods: 5
-    #         Threshold: 90
-    #         ComparisonOperator: GreaterThanOrEqualToThreshold
-    #         AlarmActions:
-    #             - !Ref ScaleUpPolicy
+
+    SpotFleetRole:
+        Type: AWS::IAM::Role
+        Properties: 
+            Path: /
+            RoleName: !Sub ${EnvironmentName}-SFRole-${AWS::Region}
+            AssumeRolePolicyDocument: |
+                {
+                    "Statement": [{
+                        "Action": "sts:AssumeRole",
+                        "Effect": "Allow",
+                        "Principal": { 
+                            "Service": "spotfleet.amazonaws.com" 
+                        }
+                    }]
+                }
+            Policies: 
+                - PolicyName: ecs-service
+                  PolicyDocument: |
+                    {
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Action": [
+                                "ec2:DescribeImages",
+                                "ec2:DescribeSubnets",
+                                "ec2:RequestSpotInstances",
+                                "ec2:TerminateInstances",
+                                "ec2:DescribeInstanceStatus",
+                                "iam:PassRole"
+                            ],
+                            "Resource": "*"
+                        }]
+                    }
 
     # This IAM Role is attached to all of the ECS hosts. It is based on the default role
     # published here:
