@@ -17,24 +17,25 @@ Parameters:
     MaxClusterSize:
         Description: How many ECS hosts do you want this cluster to have at most?
         Type: Number
-        Default: 2
+        Default: 4
 
-    InstanceLifecycle:
-        Description: Normal (on-demand, expensive) or Spot (cheap!)
-        Type: String
-        Default: normal
-        AllowedValues: [normal, spot]
-
-    InstanceType:
-        Description: Instance type to use when Instance Lifecycle is "normal".
-        Type: String
-        Default: m4.large
-        AllowedValues: [t2.large, c3.large, c3.xlarge, c3.2xlarge, c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
-
-    InstanceTypes:
-        Description: Instance types to use when Instance Lifecycle is "spot". Comma-delimited
+    SpotInstanceType1:
+        Description: Instance type to use when Instance Lifecycle is "spot"
         Type: CommaDelimitedList
-        Default: 'c3.large, c4.large, m4.large'
+        AllowedValues: [c3.large, c3.xlarge, c3.2xlarge, c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
+        Default: 'c3.large'
+
+    SpotInstanceType2:
+        Description: Instance type to use when Instance Lifecycle is "spot"
+        Type: CommaDelimitedList
+        AllowedValues: [c3.large, c3.xlarge, c3.2xlarge, c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
+        Default: 'c4.large'
+
+    SpotInstanceType3:
+        Description: Instance type to use when Instance Lifecycle is "spot"
+        Type: CommaDelimitedList
+        AllowedValues: [c3.large, c3.xlarge, c3.2xlarge, c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
+        Default: 'm4.large'
 
     SpotMaximumPrice:
         Description: Maximum bid value for Spot Instances
@@ -59,10 +60,9 @@ Parameters:
         AllowedPattern: ^(10|172|192)\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])$
 
     DatadogApiKey:
-        Description: Install Datadog dd-agent using this API Key. Set to 'none' to disable.
+        Description: Install Datadog dd-agent using this API Key. Let empty to disable
         Type: String            
-        Default: none
-        AllowedPattern: ^none|[a-f0-9]{32}$
+        AllowedPattern: ^|[a-f0-9]{32}$
 
     DatadogEnableAPM:
         Description: Enable Application Performance Monitoring (trace). Only used if you have an valid Datadog API Key.
@@ -79,15 +79,12 @@ Metadata:
               Parameters:
                 - MinClusterSize
                 - MaxClusterSize
-                - InstanceLifecycle
-            - Label: 
-                default: ECS Cluster - Normal
-              Parameters:
-                - InstanceType
             - Label: 
                 default: ECS Cluster - Spot
               Parameters:
-                - InstanceTypes
+                - SpotInstanceType1
+                - SpotInstanceType2
+                - SpotInstanceType3
                 - SpotMaximumPrice
             - Label: 
                 default: Networking
@@ -105,12 +102,12 @@ Metadata:
                 default: Minimal Cluster Size
             MaxClusterSize: 
                 default: Maximum Cluster Size
-            InstanceLifecycle:
-                default: Instance Lifecycle
-            InstanceType: 
-                default: 'EC2 Instance Type (normal)'
-            InstanceTypes:
-                default: 'EC2 Instance Types (spot)'
+            SpotInstanceType1:
+                default: 'Spot Instance Type #1'
+            SpotInstanceType2:
+                default: 'Spot Instance Type #2'
+            SpotInstanceType3:
+                default: 'Spot Instance Type #3'
             SpotMaximumPrice:
                 default: Spot Maximum Price
             ShouldCreateVPC:
@@ -132,7 +129,7 @@ Metadata:
 
 
 Conditions:
-    EnableDatadogAgent: !Not [ !Equals [ !Ref DatadogApiKey, none ] ]
+    EnableDatadogAgent: !Not [ !Equals [ !Ref DatadogApiKey, '' ] ]
     ShouldCreateVPC: !Equals [ !Ref VPCToAttach, '' ]
 
 
@@ -172,11 +169,14 @@ Resources:
     ecs:
         Type: AWS::CloudFormation::Stack
         Properties:
-            TemplateURL: !Sub https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/ecs-cluster-${InstanceLifecycle}.yaml
+            TemplateURL: !Sub https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/ecs-cluster-spot.yaml
             Parameters:
                 EnvironmentName: !Ref AWS::StackName
                 KeyName: !Ref KeyName
-                InstanceType: !Ref InstanceType
+                InstanceType1: !Ref SpotInstanceType1
+                InstanceType2: !Ref SpotInstanceType2
+                InstanceType3: !Ref SpotInstanceType3
+                MaximumPrice: !Ref SpotMaximumPrice
                 MinClusterSize: !Ref MinClusterSize
                 MaxClusterSize: !Ref MaxClusterSize
                 VPC: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
