@@ -128,8 +128,11 @@ Resources:
             UserData:
               "Fn::Base64": !Sub |
                     #!/bin/bash
-                    yum install -y aws-cfn-bootstrap
+                    yum install -y aws-cli aws-cfn-bootstrap jq
                     /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
+                    INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+                    TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
+                    aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
           - IamInstanceProfile:
               Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
@@ -144,8 +147,11 @@ Resources:
             UserData:
               "Fn::Base64": !Sub |
                     #!/bin/bash
-                    yum install -y aws-cfn-bootstrap
+                    yum install -y aws-cli aws-cfn-bootstrap jq
                     /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
+                    INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+                    TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
+                    aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
           - IamInstanceProfile:
               Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
@@ -160,8 +166,11 @@ Resources:
             UserData:
               "Fn::Base64": !Sub |
                     #!/bin/bash
-                    yum install -y aws-cfn-bootstrap
+                    yum install -y aws-cli aws-cfn-bootstrap jq
                     /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
+                    INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+                    TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
+                    aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
       Metadata:
         AWS::CloudFormation::Init:
             config:
@@ -202,7 +211,8 @@ Resources:
             MinCapacity: !Ref MinClusterSize
             MaxCapacity: !Ref MaxClusterSize
             ResourceId: !Sub 'spot-fleet-request/${SpotFleet}'
-            RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/ecsAutoscaleRole'
+            # RoleARN: !GetAtt SpotFleetRole.Arn
+            RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/ecsAutoscaleRole"
             ScalableDimension: ec2:spot-fleet-request:TargetCapacity
             ServiceNamespace: ec2
 
@@ -311,6 +321,8 @@ Resources:
                                 "ec2:RequestSpotInstances",
                                 "ec2:TerminateInstances",
                                 "ec2:DescribeInstanceStatus",
+                                "ec2:ModifySpotFleetRequest",
+                                "ec2:DescribeSpotFleetRequests",
                                 "iam:PassRole"
                             ],
                             "Resource": "*"
@@ -328,7 +340,7 @@ Resources:
         Type: AWS::IAM::Role
         Properties: 
             Path: /
-            RoleName: !Sub ${EnvironmentName}-ECSRole-${AWS::Region}
+            RoleName: !Sub ${EnvironmentName}-ECSRoleSpot-${AWS::Region}
             AssumeRolePolicyDocument: |
                 {
                     "Statement": [{
@@ -346,6 +358,8 @@ Resources:
                         "Statement": [{
                             "Effect": "Allow",
                             "Action": [
+                                "cloudformation:DescribeStacks",
+                                "ec2:CreateTags",
                                 "ecs:CreateCluster",
                                 "ecs:DeregisterContainerInstance",
                                 "ecs:DiscoverPollEndpoint",

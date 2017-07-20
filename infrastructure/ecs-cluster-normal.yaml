@@ -231,7 +231,7 @@ Resources:
         Type: AWS::IAM::Role
         Properties: 
             Path: /
-            RoleName: !Sub ${EnvironmentName}-ECSRole-${AWS::Region}
+            RoleName: !Sub ${EnvironmentName}-ECSRoleNormal-${AWS::Region}
             AssumeRolePolicyDocument: |
                 {
                     "Statement": [{
