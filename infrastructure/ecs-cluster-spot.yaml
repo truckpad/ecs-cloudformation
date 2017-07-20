@@ -124,7 +124,26 @@ Resources:
               Enabled: true
             SecurityGroups:
             - GroupId: !Ref SecurityGroup
-            SubnetId: !Join [', ', !Ref Subnets]
+            SubnetId: !Select [0, !Ref Subnets]
+            UserData:
+              "Fn::Base64": !Sub |
+                    #!/bin/bash
+                    yum install -y aws-cli aws-cfn-bootstrap jq
+                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
+                    INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+                    TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
+                    aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
+          - IamInstanceProfile:
+              Arn: !GetAtt ECSInstanceProfile.Arn
+            ImageId:
+              Fn::FindInMap: [AWSRegionToAMI, !Ref 'AWS::Region', AMI]
+            InstanceType: !Ref InstanceType1
+            KeyName: !Ref KeyName
+            Monitoring:
+              Enabled: true
+            SecurityGroups:
+            - GroupId: !Ref SecurityGroup
+            SubnetId: !Select [1, !Ref Subnets]
             UserData:
               "Fn::Base64": !Sub |
                     #!/bin/bash
@@ -143,7 +162,26 @@ Resources:
               Enabled: true
             SecurityGroups:
             - GroupId: !Ref SecurityGroup
-            SubnetId: !Join [', ', !Ref Subnets]
+            SubnetId: !Select [0, !Ref Subnets]
+            UserData:
+              "Fn::Base64": !Sub |
+                    #!/bin/bash
+                    yum install -y aws-cli aws-cfn-bootstrap jq
+                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
+                    INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+                    TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
+                    aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
+          - IamInstanceProfile:
+              Arn: !GetAtt ECSInstanceProfile.Arn
+            ImageId:
+              Fn::FindInMap: [AWSRegionToAMI, !Ref 'AWS::Region', AMI]
+            InstanceType: !Ref InstanceType2
+            KeyName: !Ref KeyName
+            Monitoring:
+              Enabled: true
+            SecurityGroups:
+            - GroupId: !Ref SecurityGroup
+            SubnetId: !Select [1, !Ref Subnets]
             UserData:
               "Fn::Base64": !Sub |
                     #!/bin/bash
@@ -162,7 +200,26 @@ Resources:
               Enabled: true
             SecurityGroups:
             - GroupId: !Ref SecurityGroup
-            SubnetId: !Join [', ', !Ref Subnets]
+            SubnetId: !Select [0, !Ref Subnets]
+            UserData:
+              "Fn::Base64": !Sub |
+                    #!/bin/bash
+                    yum install -y aws-cli aws-cfn-bootstrap jq
+                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource SpotFleet
+                    INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+                    TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
+                    aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
+          - IamInstanceProfile:
+              Arn: !GetAtt ECSInstanceProfile.Arn
+            ImageId:
+              Fn::FindInMap: [AWSRegionToAMI, !Ref 'AWS::Region', AMI]
+            InstanceType: !Ref InstanceType3
+            KeyName: !Ref KeyName
+            Monitoring:
+              Enabled: true
+            SecurityGroups:
+            - GroupId: !Ref SecurityGroup
+            SubnetId: !Select [1, !Ref Subnets]
             UserData:
               "Fn::Base64": !Sub |
                     #!/bin/bash
