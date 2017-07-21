@@ -114,10 +114,6 @@ Metadata:
                 default: Create or attach to VPC?
             VPCToAttach:
                 default: Existing VPC to attach
-            PublicSubnetsToAttach:
-                default: Existing VPC public subnets
-            PrivateSubnetsToAttach:
-                default: Existing VPC private subnets
             SubnetPrefix: 
                 default: Subnet Prefix for New VPC
             KeyName: 
