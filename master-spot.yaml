@@ -3,8 +3,11 @@ Description: >
     This template deploys a highly available ECS cluster using an AutoScaling Group, with 
     ECS hosts distributed across multiple Availability Zones. 
 
-    Last Modified: 15th July 2017
-    Authors: Marcos Sobrinho <marcos.sobrinho@truckpad.com.br>, Paul Maddox <pmaddox@amazon.com>
+    Last Modified: 07th August 2017
+    Authors:
+        - Marcelo Manzan <marcelo.manzan@truckpad.com.br>
+        - Marcos Sobrinho <marcos.sobrinho@truckpad.com.br>
+        - Paul Maddox <pmaddox@amazon.com>
 
 
 Parameters:
@@ -211,8 +214,21 @@ Outputs:
         Export:
             Name: !Sub ${AWS::StackName}-alb-url
 
+    LoadBalancerSecurityGroup:
+        Description: A reference to the security group for load balancers
+        Value: !GetAtt sgs.Outputs.LoadBalancerSecurityGroup
+        Export:
+            Name: !Sub ${AWS::StackName}-alb-sgs
+
     VPC:
         Description: VPC ARN
         Value: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
         Export:
             Name: !Sub ${AWS::StackName}-vpc
+
+    PublicSubnets:
+        Description: VPC Public Subnets
+        Value: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.PublicSubnets, {'Fn::ImportValue': !Sub '${VPCToAttach}-public-subnets'}]
+        Export:
+            Name: !Sub ${AWS::StackName}-vpc-public-subnets
+
