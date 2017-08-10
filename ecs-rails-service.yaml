@@ -1,0 +1,334 @@
+Description: >
+
+    This template deploys a highly available ECS Service (Ruby on Rails) using an AutoScaling
+    Group, with ECS hosts distributed across multiple Availability Zones. 
+
+    Last Modified: 10th August 2017
+    Authors:
+        - Marcelo Manzan <marcelo.manzan@truckpad.com.br>
+        - Marcos Sobrinho <marcos.sobrinho@truckpad.com.br>
+
+
+Parameters:
+
+    Cluster:
+        Description: ECS Cluster name that should run this service
+        Type: String
+
+    ALBToAttach:
+        Description: 'Define if you want to use the ALB from Cluster or "no" to create one.'
+        Type: String
+        Default: 'no'
+        AllowedValues: ['yes', 'no']
+
+    DockerImage:
+        Description: Path to the Docker Image that is going to be used
+        Type: String
+        # Set your project's image location as default
+        # Default: '{aws-account-id}.dkr.ecr.{aws-region}.amazonaws.com/{docker-image-name}:{docker-image-version}'
+
+    Path:
+        Description: The path to register with the Application Load Balancer
+        Type: String
+        Default: '/*'
+
+    MinCapacity:
+        Description: Minimum amount of ECS services copies to run
+        Type: Number
+        Default: 2
+
+    DesiredCount:
+        Description: Amount of ECS services to run when deploying this service
+        Type: Number
+        Default: 2
+
+    MaxCapacity:
+        Description: Maximum amount of ECS services copies to run
+        Type: Number
+        Default: 4
+
+    CPUShares:
+        Description: CPU Shares to use. 1024 = one CPU core.
+        Type: Number
+        Default: 64
+
+    MemoryLimit:
+        Description: Maximum amount of RAM to use, in MB
+        Type: Number
+        Default: 128
+
+    RailsEnv:
+        Description: Rails env :P
+        Type: String
+        AllowedValues: [production, staging, homolog, development]
+
+
+
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label:
+                default: Elastic Container Service
+              Parameters:
+                - Cluster
+                - ALBToAttach
+                - DockerImage
+                - Path
+            - Label:
+                default: ECS AutoScaling
+              Parameters:
+                - MinCapacity
+                - DesiredCount
+                - MaxCapacity
+            - Label:
+                default: Container Settings
+              Parameters:
+                - CPUShares
+                - MemoryLimit
+                - RailsEnv
+        ParameterLabels:
+            Cluster:
+                default: ECS Cluster Name
+            ALBToAttach:
+                default: Attach to existing ALB?
+            DockerImage:
+                default: Docker Image Path
+            Path:
+                default: ALB Mount Path
+            MinCapacity:
+                default: Minimal Capacity for ASG
+            DesiredCapacity:
+                default: Desired Capacity for ASG
+            MaxCapacity:
+                default: Maximum Capacity for ASG
+            CPUShares:
+                default: CPU Shares
+            MemoryLimit:
+                default: Memory Limit
+
+Conditions:
+    ShouldUseExistingALB: !Equals [ !Ref ALBToAttach, 'yes' ]
+    ShouldCreateALB: !Equals [ !Ref ALBToAttach, 'no' ]
+
+Resources:
+
+    CloudWatchLogsGroup:
+        Type: AWS::Logs::LogGroup
+        Properties:
+            LogGroupName: !Ref AWS::StackName
+            RetentionInDays: 7
+
+    alb:
+        Type: AWS::CloudFormation::Stack
+        Condition: ShouldCreateALB
+        Properties:
+            TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/load-balancers.yaml
+            Parameters:
+                EnvironmentName: !Ref AWS::StackName
+                VPC:
+                    'Fn::ImportValue': !Sub ${Cluster}-vpc
+                Subnets:
+                    'Fn::ImportValue': !Sub ${Cluster}-vpc-public-subnets
+                SecurityGroup:
+                    'Fn::ImportValue': !Sub ${Cluster}-alb-sgs
+
+    TaskDefinition:
+        Type: AWS::ECS::TaskDefinition
+        Properties:
+            Family: !Sub ${Cluster}-${AWS::StackName}
+            ContainerDefinitions:
+                - Name: site
+                  Cpu: !Ref CPUShares
+                  Essential: true
+                  Image: !Ref DockerImage
+                  Memory: !Ref MemoryLimit
+                  Environment:
+                    - Name: RAILS_ENV
+                      Value: !Ref RailsEnv
+                  ExtraHosts:
+                    - Hostname: dd-agent
+                      IpAddress: '172.17.0.1'
+                  PortMappings:
+                    - HostPort: 0
+                      ContainerPort: 8080
+                      Protocol: tcp
+                  LogConfiguration:
+                    LogDriver: awslogs
+                    Options:
+                        awslogs-group: !Ref AWS::StackName
+                        awslogs-region: !Ref AWS::Region
+
+    Service:
+        Type: AWS::ECS::Service
+        DependsOn: CloudWatchLogsGroup
+        Properties:
+            Cluster: !Ref Cluster
+            DesiredCount: !Ref DesiredCount
+            TaskDefinition: !Ref TaskDefinition
+            Role: !Ref ServiceRole
+            ServiceName: !Sub ${AWS::StackName}-Service
+            LoadBalancers:
+                - ContainerName: site
+                  ContainerPort: 8080
+                  TargetGroupArn: !If [ShouldCreateALB, !GetAtt alb.Outputs.TargetGroup, !Ref TargetGroup]
+
+
+    TargetGroup:
+        Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+        Condition: ShouldUseExistingALB
+        Properties:
+            Name: !Sub ${Cluster}-site
+            Port: 80
+            Protocol: HTTP
+            HealthCheckIntervalSeconds: 10
+            HealthCheckPath: '/'
+            HealthCheckProtocol: HTTP
+            HealthCheckTimeoutSeconds: 5
+            HealthyThresholdCount: 2
+            UnhealthyThresholdCount: 5
+            Matcher:
+                HttpCode: 200-299
+            TargetGroupAttributes:
+              - Key: 'deregistration_delay.timeout_seconds'
+                Value: 30
+              - Key: 'stickiness.enabled'
+                Value: false
+            VpcId:
+              'Fn::ImportValue': !Sub ${Cluster}-vpc
+
+    ListenerRule:
+        Type: AWS::ElasticLoadBalancingV2::ListenerRule
+        DependsOn: alb
+        Properties:
+            ListenerArn: !If [ShouldCreateALB, !GetAtt alb.Outputs.Listener, {'Fn::ImportValue': !Sub '${Cluster}-alb-listener'}]
+            Priority: 1
+            Conditions:
+                - Field: path-pattern
+                  Values:
+                    - !Ref Path
+            Actions:
+                - TargetGroupArn: !If [ShouldCreateALB, !GetAtt alb.Outputs.TargetGroup, !Ref TargetGroup]
+                  Type: forward
+
+    ServiceRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: !Sub ecs-${AWS::StackName}
+            Path: /
+            AssumeRolePolicyDocument: |
+                {
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Principal": { "Service": [ "ecs.amazonaws.com" ]},
+                        "Action": [ "sts:AssumeRole" ]
+                    }]
+                }
+            Policies:
+                - PolicyName: !Sub ecs-service-${AWS::StackName}
+                  PolicyDocument:
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [{
+                                "Effect": "Allow",
+                                "Action": [
+                                    "ec2:AuthorizeSecurityGroupIngress",
+                                    "ec2:Describe*",
+                                    "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+                                    "elasticloadbalancing:Describe*",
+                                    "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
+                                    "elasticloadbalancing:DeregisterTargets",
+                                    "elasticloadbalancing:DescribeTargetGroups",
+                                    "elasticloadbalancing:DescribeTargetHealth",
+                                    "elasticloadbalancing:RegisterTargets"
+                                ],
+                                "Resource": "*"
+                        }]
+                    }
+
+    ScalableTarget:
+        Type: AWS::ApplicationAutoScaling::ScalableTarget
+        Properties:
+            MinCapacity: !Ref MinCapacity
+            MaxCapacity: !Ref MaxCapacity
+            ResourceId: !Sub 'service/${Cluster}/${Service.Name}'
+            RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/ecsAutoscaleRole'
+            ScalableDimension: ecs:service:DesiredCount
+            ServiceNamespace: ecs
+
+    ScaleUpPolicy:
+        Type: AWS::ApplicationAutoScaling::ScalingPolicy
+        Properties:
+            PolicyName: !Sub '${Service.Name}-ScaleUpPolicy'
+            PolicyType: StepScaling
+            ScalingTargetId: !Ref ScalableTarget
+            StepScalingPolicyConfiguration:
+                AdjustmentType: ChangeInCapacity
+                Cooldown: 60
+                MetricAggregationType: Average
+                StepAdjustments:
+                    - MetricIntervalLowerBound: 0
+                      ScalingAdjustment: 1
+
+    ScaleDownPolicy:
+        Type: AWS::ApplicationAutoScaling::ScalingPolicy
+        Properties:
+            PolicyName: !Sub '${Service.Name}-ScaleDownPolicy'
+            PolicyType: StepScaling
+            ScalingTargetId: !Ref ScalableTarget
+            StepScalingPolicyConfiguration:
+                AdjustmentType: ChangeInCapacity
+                Cooldown: 120
+                MetricAggregationType: Average
+                StepAdjustments:
+                    - MetricIntervalLowerBound: 0
+                      ScalingAdjustment: -1
+
+
+    CPUUsageTooHighAlarm:
+        Type: AWS::CloudWatch::Alarm
+        Properties:
+            AlarmName:  !Sub 'Service ${AWS::StackName} (ECS ${Cluster}) CPU usage too high'
+            AlarmDescription: !Sub 'Alarm if container ${Cluster}/${Service.Name} have too much CPU usage'
+            Namespace: AWS/ECS
+            MetricName: CPUUtilization
+            Dimensions:
+                - Name: ClusterName
+                  Value: !Ref Cluster
+                - Name: ServiceName
+                  Value: !GetAtt Service.Name
+            Statistic: Average
+            Period: 60
+            EvaluationPeriods: 3
+            Threshold: 70
+            ComparisonOperator: GreaterThanOrEqualToThreshold
+            AlarmActions:
+                - !Ref ScaleUpPolicy
+
+    CPUUsageTooLowAlarm:
+        Type: AWS::CloudWatch::Alarm
+        Properties:
+            AlarmName:  !Sub 'Service ${AWS::StackName} (ECS ${Cluster}) CPU usage too low'
+            AlarmDescription: !Sub 'Alarm if container ${Cluster}/${Service.Name} have too little CPU usage'
+            Namespace: AWS/ECS
+            MetricName: CPUUtilization
+            Dimensions:
+                - Name: ClusterName
+                  Value: !Ref Cluster
+                - Name: ServiceName
+                  Value: !GetAtt Service.Name
+            Statistic: Average
+            Period: 60
+            EvaluationPeriods: 5
+            Threshold: 33
+            ComparisonOperator: LessThanThreshold
+            AlarmActions:
+                - !Ref ScaleDownPolicy
+
+Outputs:
+
+    LoadBalancerUrl:
+        Description: The URL of the ALB
+        Value: !If [ShouldCreateALB, !GetAtt alb.Outputs.LoadBalancerUrl, {'Fn::ImportValue': !Sub '${Cluster}-alb-url'}]
+        Export:
+            Name: !Sub ${AWS::StackName}-alb-url
+
