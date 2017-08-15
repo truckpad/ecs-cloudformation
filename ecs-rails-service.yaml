@@ -107,7 +107,6 @@ Metadata:
                 default: Memory Limit
 
 Conditions:
-    ShouldUseExistingALB: !Equals [ !Ref ALBToAttach, 'yes' ]
     ShouldCreateALB: !Equals [ !Ref ALBToAttach, 'no' ]
 
 Resources:
@@ -131,6 +130,7 @@ Resources:
                     'Fn::ImportValue': !Sub ${Cluster}-vpc-public-subnets
                 SecurityGroup:
                     'Fn::ImportValue': !Sub ${Cluster}-alb-sgs
+                TargetGroupBound: !Ref TargetGroup
 
     TaskDefinition:
         Type: AWS::ECS::TaskDefinition
@@ -160,7 +160,7 @@ Resources:
 
     Service:
         Type: AWS::ECS::Service
-        DependsOn: CloudWatchLogsGroup
+        DependsOn: [ CloudWatchLogsGroup, alb ]
         Properties:
             Cluster: !Ref Cluster
             DesiredCount: !Ref DesiredCount
@@ -170,12 +170,11 @@ Resources:
             LoadBalancers:
                 - ContainerName: site
                   ContainerPort: 8080
-                  TargetGroupArn: !If [ShouldCreateALB, !GetAtt alb.Outputs.TargetGroup, !Ref TargetGroup]
+                  TargetGroupArn: !Ref TargetGroup
 
 
     TargetGroup:
         Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
-        Condition: ShouldUseExistingALB
         Properties:
             Name: !Sub ${Cluster}-site
             Port: 80
