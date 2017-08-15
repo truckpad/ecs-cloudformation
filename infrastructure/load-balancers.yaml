@@ -20,6 +20,14 @@ Parameters:
         Description: Select the Security Group to apply to the Applicaion Load Balancer
         Type: AWS::EC2::SecurityGroup::Id
 
+    TargetGroupBound:
+        Description: The foreign TargetGroup to be assigned to the new ALB
+        Type: String
+        Default: ''
+
+Conditions:
+    ShouldCreateTargetGroup: !Equals [ !Ref TargetGroupBound, '' ]
+
 Resources:
 
     LoadBalancer:
@@ -41,13 +49,14 @@ Resources:
             Protocol: HTTP 
             DefaultActions: 
                 - Type: forward
-                  TargetGroupArn: !Ref DefaultTargetGroup
+                  TargetGroupArn: !If [ ShouldCreateTargetGroup, !Ref DefaultTargetGroup, !Ref TargetGroupBound ]
     
     # We define a default target group here, as this is a mandatory Parameters
     # when creating an Application Load Balancer Listener. This is not used, instead
     # a target group is created per-service in each service template (../services/*)
     DefaultTargetGroup:
         Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Condition: ShouldCreateTargetGroup
         Properties:
             Name: !Sub ${EnvironmentName}-default
             VpcId: !Ref VPC
@@ -70,6 +79,6 @@ Outputs:
 
     TargetGroup:
         Description: The TargetGroup associated with the LoadBalancerListener
-        Value: !Ref DefaultTargetGroup
+        Value: !If [ ShouldCreateTargetGroup, !Ref DefaultTargetGroup, !Ref TargetGroupBound ]
 
 
