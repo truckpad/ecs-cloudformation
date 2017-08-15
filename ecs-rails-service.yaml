@@ -147,7 +147,7 @@ Resources:
         Properties:
             Family: !Sub ${Cluster}-${AWS::StackName}
             ContainerDefinitions:
-                - Name: site
+                - Name: !Ref AWS::StackName
                   Cpu: !Ref CPUShares
                   Essential: true
                   Image: !Ref DockerImage
@@ -180,7 +180,7 @@ Resources:
             Role: !Ref ServiceRole
             ServiceName: !Sub ${AWS::StackName}-Service
             LoadBalancers:
-                - ContainerName: site
+                - ContainerName: !Ref AWS::StackName
                   ContainerPort: 8080
                   TargetGroupArn: !Ref TargetGroup
 
@@ -188,7 +188,7 @@ Resources:
     TargetGroup:
         Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
         Properties:
-            Name: !Sub ${Cluster}-site
+            Name: !Sub ${Cluster}-${AWS::StackName}
             Port: 80
             Protocol: HTTP
             HealthCheckIntervalSeconds: 10
