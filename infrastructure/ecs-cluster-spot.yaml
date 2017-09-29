@@ -54,6 +54,16 @@ Parameters:
         Description: Select the Security Group to use for the ECS cluster hosts
         Type: AWS::EC2::SecurityGroup::Id
 
+    DeviceName:
+        Description: The name of the device within the EC2 instance, such as /dev/dsh or xvdh.
+        Type: String
+        Default: "/dev/xvda"
+
+    VolumeSize:
+        Description: Disk volume size (GiB's) of the EC2 instances
+        Type: Number
+        Default: 10
+
 Mappings:
 
     # These are the latest ECS optimized AMIs as of March 2017:
@@ -133,6 +143,10 @@ Resources:
                     INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
                     TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
                     aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
+            BlockDeviceMappings:
+                - DeviceName: !Ref DeviceName
+                  Ebs: 
+                      VolumeSize: !Ref VolumeSize
           - IamInstanceProfile:
               Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
@@ -152,6 +166,10 @@ Resources:
                     INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
                     TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
                     aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
+            BlockDeviceMappings:
+                - DeviceName: !Ref DeviceName
+                  Ebs: 
+                      VolumeSize: !Ref VolumeSize
           - IamInstanceProfile:
               Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
@@ -171,6 +189,10 @@ Resources:
                     INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
                     TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
                     aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
+            BlockDeviceMappings:
+                - DeviceName: !Ref DeviceName
+                  Ebs: 
+                      VolumeSize: !Ref VolumeSize
           - IamInstanceProfile:
               Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
@@ -190,6 +212,10 @@ Resources:
                     INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
                     TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
                     aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
+            BlockDeviceMappings:
+                - DeviceName: !Ref DeviceName
+                  Ebs: 
+                      VolumeSize: !Ref VolumeSize
           - IamInstanceProfile:
               Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
@@ -209,6 +235,10 @@ Resources:
                     INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
                     TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
                     aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
+            BlockDeviceMappings:
+                - DeviceName: !Ref DeviceName
+                  Ebs: 
+                      VolumeSize: !Ref VolumeSize
           - IamInstanceProfile:
               Arn: !GetAtt ECSInstanceProfile.Arn
             ImageId:
@@ -228,6 +258,10 @@ Resources:
                     INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
                     TAGS=$(aws cloudformation describe-stacks --region ${AWS::Region} --stack-name ${EnvironmentName} | jq -r '.Stacks[0].Tags | map(select(.Key != "Name")) | .[.|length] |= .+ {"Key": "Name", "Value": "${EnvironmentName}"}')
                     aws ec2 create-tags --region us-west-2 --resources $INSTANCE_ID --tags "$TAGS"
+            BlockDeviceMappings:
+                - DeviceName: !Ref DeviceName
+                  Ebs: 
+                      VolumeSize: !Ref VolumeSize
       Metadata:
         AWS::CloudFormation::Init:
             config:
