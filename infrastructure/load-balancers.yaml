@@ -101,6 +101,10 @@ Outputs:
         Description: A reference to a port 80 listener
         Value: !Ref LoadBalancerListener
 
+    ListenerHttps:
+        Description: A reference to a port 443 listener
+        Value: !If [ShouldCreateHttpsListener, !Ref LoadBalancerListenerTLS, "" ]
+
     TargetGroup:
         Description: The TargetGroup associated with the LoadBalancerListener
         Value: !If [ ShouldCreateTargetGroup, !Ref DefaultTargetGroup, !Ref TargetGroupBound ]
