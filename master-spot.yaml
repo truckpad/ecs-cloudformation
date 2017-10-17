@@ -83,6 +83,11 @@ Parameters:
         Type: Number
         Default: 10
 
+    AMIBaseId:
+        Description: The AWS AMI base to use
+        Type: AWS::EC2::Image::Id
+        Default: ''
+
 
 Metadata:
     AWS::CloudFormation::Interface:
@@ -101,6 +106,7 @@ Metadata:
                 - SpotMaximumPrice
                 - DeviceName
                 - VolumeSize
+                - AMIBaseId
             - Label: 
                 default: Networking
               Parameters:
@@ -141,6 +147,8 @@ Metadata:
                 default: Device Name
             VolumeSize:
                 default: EC2 Volume Size
+            AMIBaseId:
+                default: AMI Base Id
 
 
 Conditions:
@@ -199,6 +207,7 @@ Resources:
                 Subnets: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.PrivateSubnets, {'Fn::ImportValue': !Sub '${VPCToAttach}-private-subnets'}]
                 DeviceName: !Ref DeviceName
                 VolumeSize: !Ref VolumeSize
+                AMIBaseId: !Ref AMIBaseId
 
     ddagent:
         Type: AWS::CloudFormation::Stack
