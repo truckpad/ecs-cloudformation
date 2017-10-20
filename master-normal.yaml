@@ -56,6 +56,15 @@ Parameters:
         Default: false
         AllowedValues: [false, true]
 
+    DeviceName:
+        Description: The name of the device within the EC2 instance, such as /dev/dsh or xvdh.
+        Type: String
+        Default: "/dev/xvda"
+
+    VolumeSize:
+        Description: Disk volume size (GiB's) of the EC2 instances
+        Type: Number
+        Default: 30
 
 Metadata:
     AWS::CloudFormation::Interface:
@@ -66,6 +75,8 @@ Metadata:
                 - MinClusterSize
                 - MaxClusterSize
                 - InstanceLifecycle
+                - DeviceName
+                - VolumeSize
             - Label: 
                 default: ECS Cluster - On Demand
               Parameters:
@@ -102,7 +113,10 @@ Metadata:
                 default: Datadog API Key
             DatadogEnableAPM: 
                 default: 'Datadog: Enable APM?'
-
+            DeviceName:
+                default: Device Name
+            VolumeSize:
+                default: EC2 Volume Size
 
 Conditions:
     EnableDatadogAgent: !Not [ !Equals [ !Ref DatadogApiKey, '' ] ]
@@ -155,6 +169,8 @@ Resources:
                 VPC: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
                 SecurityGroup: !GetAtt sgs.Outputs.ECSHostSecurityGroup
                 Subnets: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.PrivateSubnets, {'Fn::ImportValue': !Sub '${VPCToAttach}-private-subnets'}]
+                DeviceName: !Ref DeviceName
+                VolumeSize: !Ref VolumeSize
 
     ddagent:
         Type: AWS::CloudFormation::Stack
