@@ -66,6 +66,11 @@ Parameters:
         Type: Number
         Default: 30
 
+    AMIBaseId:
+        Description: The AWS AMI base to use
+        Type: AWS::EC2::Image::Id
+        Default: ''
+
 Metadata:
     AWS::CloudFormation::Interface:
         ParameterGroups:
@@ -77,6 +82,7 @@ Metadata:
                 - InstanceLifecycle
                 - DeviceName
                 - VolumeSize
+                - AMIBaseId
             - Label: 
                 default: ECS Cluster - On Demand
               Parameters:
@@ -117,6 +123,8 @@ Metadata:
                 default: Device Name
             VolumeSize:
                 default: EC2 Volume Size
+            AMIBaseId:
+                default: AMI Base Id
 
 Conditions:
     EnableDatadogAgent: !Not [ !Equals [ !Ref DatadogApiKey, '' ] ]
@@ -171,6 +179,7 @@ Resources:
                 Subnets: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.PrivateSubnets, {'Fn::ImportValue': !Sub '${VPCToAttach}-private-subnets'}]
                 DeviceName: !Ref DeviceName
                 VolumeSize: !Ref VolumeSize
+                AMIBaseId: !Ref AMIBaseId
 
     ddagent:
         Type: AWS::CloudFormation::Stack
