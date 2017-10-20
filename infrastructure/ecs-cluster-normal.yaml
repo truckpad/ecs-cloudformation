@@ -49,6 +49,11 @@ Parameters:
         Type: Number
         Default: 30
 
+    AMIBaseId:
+        Description: The AWS AMI base to use
+        Type: AWS::EC2::Image::Id
+        Default: ''
+
 Mappings:
 
     # These are the latest ECS optimized AMIs as of March 2017:
@@ -86,6 +91,9 @@ Mappings:
         ca-central-1:
             AMI: ami-32bb0556
 
+Conditions:
+    HasAMIBaseId: !Not [ !Equals [ !Ref AMIBaseId, '' ] ]
+
 Resources:
 
     ECSCluster:
@@ -118,7 +126,7 @@ Resources:
     ECSLaunchConfiguration:
         Type: AWS::AutoScaling::LaunchConfiguration
         Properties:
-            ImageId: !FindInMap [AWSRegionToAMI, !Ref "AWS::Region", AMI]
+            ImageId: !If [ HasAMIBaseId, !Ref AMIBaseId, !FindInMap [AWSRegionToAMI, !Ref "AWS::Region", AMI] ]
             InstanceType: !Ref InstanceType
             SecurityGroups: 
                 - !Ref SecurityGroup
