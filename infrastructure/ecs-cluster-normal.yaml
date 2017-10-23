@@ -39,6 +39,21 @@ Parameters:
         Description: Select the Security Group to use for the ECS cluster hosts
         Type: AWS::EC2::SecurityGroup::Id
 
+    DeviceName:
+        Description: The name of the device within the EC2 instance, such as /dev/dsh or xvdh.
+        Type: String
+        Default: "/dev/xvda"
+
+    VolumeSize:
+        Description: Disk volume size (GiB's) of the EC2 instances
+        Type: Number
+        Default: 30
+
+    AMIBaseId:
+        Description: The AWS AMI base to use
+        Type: AWS::EC2::Image::Id
+        Default: ''
+
 Mappings:
 
     # These are the latest ECS optimized AMIs as of March 2017:
@@ -76,6 +91,9 @@ Mappings:
         ca-central-1:
             AMI: ami-32bb0556
 
+Conditions:
+    HasAMIBaseId: !Not [ !Equals [ !Ref AMIBaseId, '' ] ]
+
 Resources:
 
     ECSCluster:
@@ -108,7 +126,7 @@ Resources:
     ECSLaunchConfiguration:
         Type: AWS::AutoScaling::LaunchConfiguration
         Properties:
-            ImageId: !FindInMap [AWSRegionToAMI, !Ref "AWS::Region", AMI]
+            ImageId: !If [ HasAMIBaseId, !Ref AMIBaseId, !FindInMap [AWSRegionToAMI, !Ref "AWS::Region", AMI] ]
             InstanceType: !Ref InstanceType
             SecurityGroups: 
                 - !Ref SecurityGroup
@@ -120,7 +138,10 @@ Resources:
                     yum install -y aws-cfn-bootstrap
                     /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
                     /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSAutoScalingGroup
-
+            BlockDeviceMappings:
+                - DeviceName: !Ref DeviceName
+                  Ebs: 
+                      VolumeSize: !Ref VolumeSize
         Metadata:
             AWS::CloudFormation::Init:
                 config:
