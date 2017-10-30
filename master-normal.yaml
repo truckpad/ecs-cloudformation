@@ -154,16 +154,6 @@ Resources:
                 EnvironmentName: !Ref AWS::StackName
                 VPC: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
 
-    alb:
-        Type: AWS::CloudFormation::Stack
-        Properties:
-            TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/load-balancers.yaml
-            Parameters:
-                EnvironmentName: !Ref AWS::StackName
-                VPC: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
-                Subnets: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.PublicSubnets, {'Fn::ImportValue': !Sub '${VPCToAttach}-public-subnets'}]
-                SecurityGroup: !GetAtt sgs.Outputs.LoadBalancerSecurityGroup
-
     ecs:
         Type: AWS::CloudFormation::Stack
         Properties:
@@ -194,24 +184,6 @@ Resources:
 
 
 Outputs:
-
-    LoadBalancer:
-        Description: A reference to the Application Load Balancer
-        Value: !GetAtt alb.Outputs.LoadBalancer
-        Export:
-            Name: !Sub ${AWS::StackName}-alb
-
-    LoadBalancerListener:
-        Description: A reference to a port 80 listener
-        Value: !GetAtt alb.Outputs.Listener
-        Export:
-            Name: !Sub ${AWS::StackName}-alb-listener
-
-    LoadBalancerUrl:
-        Description: The URL of the ALB
-        Value: !GetAtt alb.Outputs.LoadBalancerUrl
-        Export:
-            Name: !Sub ${AWS::StackName}-alb-url
 
     LoadBalancerSecurityGroup:
         Description: A reference to the security group for load balancers
