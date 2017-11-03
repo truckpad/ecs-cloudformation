@@ -1,0 +1,154 @@
+Description: >
+
+    This template deploys a highly available ECS cluster using an AutoScaling Group, with 
+    ECS hosts distributed across multiple Availability Zones. 
+
+    Authors:
+        - Marcelo Manzan <marcelo.manzan@truckpad.com.br>
+
+Parameters:
+    
+    MinClusterSize:
+        Description: How many ECS hosts do you want to initially deploy?
+        Type: Number
+        Default: 1
+
+    MaxClusterSize:
+        Description: How many ECS hosts do you want this cluster to have at most?
+        Type: Number
+        Default: 3
+
+    InstanceType:
+        Description: Instance type to use when Instance Lifecycle is "normal".
+        Type: String
+        Default: t2.micro
+        AllowedValues: [t2.micro, t2.small, t2.large, c3.large, c3.xlarge, c3.2xlarge, c4.large, c4.xlarge, c4.2xlarge, m4.large, m4.xlarge, m4.2xlarge]
+
+    DeviceName:
+        Description: The name of the device within the EC2 instance, such as /dev/dsh or xvdh.
+        Type: String
+        Default: "/dev/xvda"
+
+    VolumeSize:
+        Description: Disk volume size (GiB's) of the EC2 instances
+        Type: Number
+        Default: 12
+
+    AMIBaseId:
+        Description: The AWS AMI base to use
+        Type: AWS::EC2::Image::Id
+        Default: ''
+
+    VPC:
+        Type: AWS::EC2::VPC::Id
+        Description: Choose which VPC the security groups should be deployed to
+
+    Subnets:
+        Description: Choose which subnets this ECS cluster should be deployed to
+        Type: List<AWS::EC2::Subnet::Id>
+
+    KeyName:
+        Description: Name of an existing EC2 KeyPair to enable SSH access to the ECS cluster
+        Type: AWS::EC2::KeyPair::KeyName
+
+
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label:
+                default: ECS Cluster
+              Parameters:
+                - MinClusterSize
+                - MaxClusterSize
+            - Label:
+                default: ECS Cluster - Spot
+              Parameters:
+                - SpotInstanceType
+                - DeviceName
+                - VolumeSize
+                - AMIBaseId
+            - Label:
+                default: Networking
+              Parameters:
+                - KeyName
+                - VPC
+                - Subnets
+
+        ParameterLabels:
+            MinClusterSize: 
+                default: Minimal Cluster Size
+            MaxClusterSize: 
+                default: Maximum Cluster Size
+            VPC:
+                default: Existing VPC to attach
+            Subnets:
+                default: List of subnets
+            KeyName: 
+                default: SSH Key Name
+            InstanceType: 
+                default: 'On Demand Instance Type'
+            DeviceName:
+                default: Device Name
+            VolumeSize:
+                default: EC2 Volume Size
+            AMIBaseId:
+                default: AMI Base Id
+
+
+
+Resources:
+
+    # This security group defines who/where is allowed to access the Application Load Balancer.
+    # By default, we've opened this up to the public internet (0.0.0.0/0) but can you restrict
+    # it further if you want.
+    LoadBalancerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties: 
+            VpcId: !Ref VPC
+            GroupDescription: Access to the load balancer that sits in front of ECS
+            SecurityGroupIngress:
+                # Allow access from anywhere to our ECS services
+                - CidrIp: 0.0.0.0/0
+                  IpProtocol: -1
+            Tags: 
+                - Key: Name
+                  Value: !Sub ${AWS::StackName}-LoadBalancers
+
+    # This security group defines who/where is allowed to access the ECS hosts directly.
+    # By default we're just allowing access from the load balancer.  If you want to SSH 
+    # into the hosts, or expose non-load balanced services you can open their ports here.
+    ECSHostSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties: 
+            VpcId: !Ref VPC
+            GroupDescription: Access to the ECS hosts and the tasks/containers that run on them
+            SecurityGroupIngress:
+                # Only allow inbound access to ECS from the ELB
+                - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup 
+                  IpProtocol: -1
+                # Allow SSH access from anywhere to our ECS cluster
+                - CidrIp: 0.0.0.0/0
+                  FromPort: '22'
+                  ToPort: '22'
+                  IpProtocol: tcp
+            Tags: 
+                - Key: Name
+                  Value: !Sub ${AWS::StackName}-ECS-Hosts
+
+
+    ecs:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: !Sub https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/ecs-cluster-normal.yaml
+            Parameters:
+                EnvironmentName: !Ref AWS::StackName
+                KeyName: !Ref KeyName
+                InstanceType: !Ref InstanceType
+                MinClusterSize: !Ref MinClusterSize
+                MaxClusterSize: !Ref MaxClusterSize
+                VPC: !Ref VPC
+                SecurityGroup: !Ref ECSHostSecurityGroup
+                Subnets: !Join [ ",", !Ref Subnets]
+                DeviceName: !Ref DeviceName
+                VolumeSize: !Ref VolumeSize
+                AMIBaseId: !Ref AMIBaseId
