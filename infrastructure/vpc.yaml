@@ -35,18 +35,38 @@ Parameters:
         Type: String
         Default: 10.192.21.0/24
 
+    EnableDnsHostnames:
+        Description: Specifies whether the instances launched in the VPC get DNS hostnames.
+        Type: String
+        Default: yes
+        AllowedValues: [ no, yes ]
+
+    RunService:
+        Description: Let the service Up and Runing
+        Type: String
+        Default: 'yes'
+        AllowedValues: [ 'no', 'yes' ]
+
+
+Conditions:
+    ShouldCreateService: !Not [ !Equals [ !Ref RunService, 'no' ] ]
+
+
 Resources:
 
     VPC: 
         Type: AWS::EC2::VPC
+        Condition: ShouldCreateService
         Properties:
             CidrBlock: !Ref VpcCIDR
+            EnableDnsHostnames: !Ref EnableDnsHostnames
             Tags: 
                 - Key: Name 
                   Value: !Ref EnvironmentName
             
     InternetGateway:
         Type: AWS::EC2::InternetGateway
+        Condition: ShouldCreateService
         Properties:
             Tags:
                 - Key: Name
@@ -54,12 +74,14 @@ Resources:
             
     InternetGatewayAttachment:
         Type: AWS::EC2::VPCGatewayAttachment
+        Condition: ShouldCreateService
         Properties:
             InternetGatewayId: !Ref InternetGateway
             VpcId: !Ref VPC
 
     PublicSubnet1: 
         Type: AWS::EC2::Subnet
+        Condition: ShouldCreateService
         Properties:
             VpcId: !Ref VPC
             AvailabilityZone: !Select [ 0, !GetAZs ]
@@ -71,6 +93,7 @@ Resources:
 
     PublicSubnet2: 
         Type: AWS::EC2::Subnet
+        Condition: ShouldCreateService
         Properties:
             VpcId: !Ref VPC
             AvailabilityZone: !Select [ 1, !GetAZs ]
@@ -82,6 +105,7 @@ Resources:
 
     PrivateSubnet1: 
         Type: AWS::EC2::Subnet
+        Condition: ShouldCreateService
         Properties:
             VpcId: !Ref VPC
             AvailabilityZone: !Select [ 0, !GetAZs ]
@@ -93,6 +117,7 @@ Resources:
 
     PrivateSubnet2: 
         Type: AWS::EC2::Subnet
+        Condition: ShouldCreateService
         Properties:
             VpcId: !Ref VPC
             AvailabilityZone: !Select [ 1, !GetAZs ]
@@ -104,30 +129,35 @@ Resources:
 
     NatGateway1EIP:
         Type: AWS::EC2::EIP
+        Condition: ShouldCreateService
         DependsOn: InternetGatewayAttachment
         Properties: 
             Domain: vpc
 
     NatGateway2EIP:
         Type: AWS::EC2::EIP
+        Condition: ShouldCreateService
         DependsOn: InternetGatewayAttachment
         Properties:
             Domain: vpc
 
     NatGateway1: 
         Type: AWS::EC2::NatGateway
+        Condition: ShouldCreateService
         Properties: 
             AllocationId: !GetAtt NatGateway1EIP.AllocationId
             SubnetId: !Ref PublicSubnet1
 
     NatGateway2: 
         Type: AWS::EC2::NatGateway
+        Condition: ShouldCreateService
         Properties:
             AllocationId: !GetAtt NatGateway2EIP.AllocationId
             SubnetId: !Ref PublicSubnet2
 
     PublicRouteTable:
         Type: AWS::EC2::RouteTable
+        Condition: ShouldCreateService
         Properties: 
             VpcId: !Ref VPC
             Tags: 
@@ -136,6 +166,7 @@ Resources:
 
     DefaultPublicRoute: 
         Type: AWS::EC2::Route
+        Condition: ShouldCreateService
         DependsOn: InternetGatewayAttachment
         Properties: 
             RouteTableId: !Ref PublicRouteTable
@@ -144,12 +175,14 @@ Resources:
 
     PublicSubnet1RouteTableAssociation:
         Type: AWS::EC2::SubnetRouteTableAssociation
+        Condition: ShouldCreateService
         Properties:
             RouteTableId: !Ref PublicRouteTable
             SubnetId: !Ref PublicSubnet1
 
     PublicSubnet2RouteTableAssociation:
         Type: AWS::EC2::SubnetRouteTableAssociation
+        Condition: ShouldCreateService
         Properties:
             RouteTableId: !Ref PublicRouteTable
             SubnetId: !Ref PublicSubnet2
@@ -157,6 +190,7 @@ Resources:
 
     PrivateRouteTable1:
         Type: AWS::EC2::RouteTable
+        Condition: ShouldCreateService
         Properties: 
             VpcId: !Ref VPC
             Tags: 
@@ -165,6 +199,7 @@ Resources:
 
     DefaultPrivateRoute1:
         Type: AWS::EC2::Route
+        Condition: ShouldCreateService
         Properties:
             RouteTableId: !Ref PrivateRouteTable1
             DestinationCidrBlock: 0.0.0.0/0
@@ -172,12 +207,14 @@ Resources:
 
     PrivateSubnet1RouteTableAssociation:
         Type: AWS::EC2::SubnetRouteTableAssociation
+        Condition: ShouldCreateService
         Properties:
             RouteTableId: !Ref PrivateRouteTable1
             SubnetId: !Ref PrivateSubnet1
 
     PrivateRouteTable2:
         Type: AWS::EC2::RouteTable
+        Condition: ShouldCreateService
         Properties: 
             VpcId: !Ref VPC
             Tags: 
@@ -186,6 +223,7 @@ Resources:
 
     DefaultPrivateRoute2:
         Type: AWS::EC2::Route
+        Condition: ShouldCreateService
         Properties:
             RouteTableId: !Ref PrivateRouteTable2
             DestinationCidrBlock: 0.0.0.0/0
@@ -193,6 +231,7 @@ Resources:
 
     PrivateSubnet2RouteTableAssociation:
         Type: AWS::EC2::SubnetRouteTableAssociation
+        Condition: ShouldCreateService
         Properties:
             RouteTableId: !Ref PrivateRouteTable2
             SubnetId: !Ref PrivateSubnet2
@@ -201,34 +240,41 @@ Outputs:
 
     VPC: 
         Description: A reference to the created VPC
+        Condition: ShouldCreateService
         Value: !Ref VPC
         Export:
             Name: !Sub ${AWS::StackName}
 
     PublicSubnets:
         Description: A list of the public subnets
+        Condition: ShouldCreateService
         Value: !Join [ ",", [ !Ref PublicSubnet1, !Ref PublicSubnet2 ]]
         Export:
             Name: !Sub ${AWS::StackName}-public-subnets
 
     PrivateSubnets:
         Description: A list of the private subnets
+        Condition: ShouldCreateService
         Value: !Join [ ",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2 ]]
         Export:
             Name: !Sub ${AWS::StackName}-private-subnets
 
     PublicSubnet1:
         Description: A reference to the public subnet in the 1st Availability Zone
+        Condition: ShouldCreateService
         Value: !Ref PublicSubnet1
 
     PublicSubnet2: 
         Description: A reference to the public subnet in the 2nd Availability Zone
+        Condition: ShouldCreateService
         Value: !Ref PublicSubnet2
 
     PrivateSubnet1:
         Description: A reference to the private subnet in the 1st Availability Zone
+        Condition: ShouldCreateService
         Value: !Ref PrivateSubnet1
 
     PrivateSubnet2: 
         Description: A reference to the private subnet in the 2nd Availability Zone
+        Condition: ShouldCreateService
         Value: !Ref PrivateSubnet2
