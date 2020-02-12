@@ -105,6 +105,8 @@ Mappings:
             AMI: ami-c3233ba0
         ca-central-1:
             AMI: ami-32bb0556
+        sa-east-1:
+            AMI: ami-0eafc21e33e768494
 
 Conditions:
     HasAMIBaseId: !Not [ !Equals [ !Ref AMIBaseId, '' ] ]
