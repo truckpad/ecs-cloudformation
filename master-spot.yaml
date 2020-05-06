@@ -3,7 +3,8 @@ Description: >
     This template deploys a highly available ECS cluster using an AutoScaling Group, with 
     ECS hosts distributed across multiple Availability Zones. 
 
-    Last Modified: 07th August 2017
+    Last Modified: 06th May 2020
+    File: master-spot.yaml
     Authors:
         - Marcelo Manzan <marcelo.manzan@truckpad.com.br>
         - Marcos Sobrinho <marcos.sobrinho@truckpad.com.br>
@@ -88,6 +89,12 @@ Parameters:
         Type: AWS::EC2::Image::Id
         Default: ''
 
+    ApplyResources:
+        Description: Let the VPN server up and Running
+        Type: String
+        Default: 'no'
+        AllowedValues: ['no', 'yes']
+
 
 Metadata:
     AWS::CloudFormation::Interface:
@@ -152,8 +159,9 @@ Metadata:
 
 
 Conditions:
-    EnableDatadogAgent: !Not [ !Equals [ !Ref DatadogApiKey, '' ] ]
-    ShouldCreateVPC: !Equals [ !Ref VPCToAttach, '' ]
+    ShouldApplyResource: !Equals [ !Ref ApplyResources, 'yes' ]
+    EnableDatadogAgent: !And [ !Equals [ !Ref ApplyResources, 'yes' ], !Not [ !Equals [ !Ref DatadogApiKey, '' ] ] ]
+    ShouldCreateVPC: !And [ !Equals [ !Ref ApplyResources, 'yes' ], !Equals [ !Ref VPCToAttach, '' ] ]
 
 
 Resources:
@@ -173,6 +181,7 @@ Resources:
 
     sgs:
         Type: AWS::CloudFormation::Stack
+        Condition: ShouldApplyResource
         Properties:
             TemplateURL: https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/security-groups.yaml
             Parameters: 
@@ -181,6 +190,7 @@ Resources:
 
     ecs:
         Type: AWS::CloudFormation::Stack
+        Condition: ShouldApplyResource
         Properties:
             TemplateURL: !Sub https://s3.amazonaws.com/cfn-truckpad/ecs/infrastructure/ecs-cluster-spot.yaml
             Parameters:
@@ -215,19 +225,21 @@ Outputs:
 
     LoadBalancerSecurityGroup:
         Description: A reference to the security group for load balancers
+        Condition: ShouldApplyResource
         Value: !GetAtt sgs.Outputs.LoadBalancerSecurityGroup
         Export:
             Name: !Sub ${AWS::StackName}-alb-sgs
 
     VPC:
         Description: VPC ARN
+        Condition: ShouldApplyResource
         Value: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.VPC, {'Fn::ImportValue': !Sub '${VPCToAttach}'}]
         Export:
             Name: !Sub ${AWS::StackName}-vpc
 
     PublicSubnets:
         Description: VPC Public Subnets
+        Condition: ShouldApplyResource
         Value: !If [ShouldCreateVPC, !GetAtt vpc.Outputs.PublicSubnets, {'Fn::ImportValue': !Sub '${VPCToAttach}-public-subnets'}]
         Export:
             Name: !Sub ${AWS::StackName}-vpc-public-subnets
-
